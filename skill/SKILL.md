@@ -38,7 +38,7 @@ Plan lives in `features/` as markdown. Format rules: `features/SCHEMA.md`. Helpe
 Repeat until stopped by the user or nothing is left:
 
 1. **Triage.** `ft todos --unassigned`: give every `(P?)` todo a priority P0–P3 (dependencies, abstracts), rewrite in place, one-line reason each.
-2. **Pick.** `ft next`. Never choose a todo from memory, always from this command; the tree on disk is the plan.
+2. **Pick.** `ft next`. Never choose a todo from memory, always from this command; the tree on disk is the plan. Unattended/looped session (no human watching): use `ft next --afk-only` instead — it skips `{hitl}`-tagged todos that need a live decision.
 3. **Block instead of stalling.** If a todo cannot proceed because of a decision you cannot make safely:
    - `ft ask NODE "question"` (state the options you see and your recommendation in the text),
    - add `{blocked: Qn}` to the end of that todo,

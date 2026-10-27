@@ -2,6 +2,15 @@
 
 Source of truth for node format. `ft lint` enforces it. Obsidian-compatible: YAML frontmatter + `[[wikilinks]]`.
 
+## Design Philosophy
+
+Feature tree is a **project status indicator**, not an IDE or a spec-document system. Researched against Matt Pocock's Wayfinder skill, GitHub Spec Kit, and AWS Kiro before writing this down, specifically to reject the parts of those tools that don't fit:
+
+- **Natural language, not implementation detail.** A node captures intent, decisions, and rationale in prose a human can skim in seconds — not schemas, interfaces, or code. Implementation detail lives in the actual code, which is the source of truth for *how*; a node only needs to say *what* and *why*.
+- **One file per node, never fragmented.** Spec Kit and Kiro each split a feature across 3 files (spec/plan/tasks, or requirements/design/tasks). Feature tree deliberately rejects that: one markdown file, one fixed set of sections, so there's exactly one place to look. Don't propose splitting a node into companion files — split into child *nodes* instead if it's genuinely grown too big (see Split guards).
+- **Fog of war: don't pre-decompose vague scope.** If a child node's scope isn't sharp enough to write a real Abstract yet, it isn't ready to be a node. Keep it as a loose Todo or Question on the *parent* instead, and only promote it once you can state what it is precisely. `ft lint` nudges at this with a warning when an Abstract is still a `ft init`-style `DRAFT:` placeholder — that's a sign the node was created before its scope was actually known.
+- **Acceptance Tests read better as testable statements** (`Given X, when Y, then Z`, or `WHEN <condition> THE SYSTEM SHALL <behavior>`) than as free prose — a style tip borrowed from Kiro's EARS convention, not an enforced rule. `ft lint` doesn't check phrasing.
+
 ## Layout
 
 - Tree root dir: `features/`.
@@ -68,9 +77,20 @@ Same convention as the `AskUserQuestion` tool: offer a short list of concrete op
 - The answer line (`- A: ...`) is unchanged whether the human picked a listed option or typed something under "Other".
 - Plain open-ended questions (no `O:` lines) still work exactly as before — options are optional.
 
+## Cross-branch dependencies and unattended work
+
+Tree position (parent/child) governs *organization*; it doesn't have to govern *sequencing*. A todo can be gated on a completely different branch of the tree, and a todo can be marked as needing a live human regardless of where it sits. Both researched from Matt Pocock's Wayfinder skill, adapted to this tool's node-granularity (todos have no stable id, so blocking targets a *node*, reusing the node status the tree already tracks).
+
+- `{blocked-by: node-name}` — this todo is excluded from `ft next`/`ft todos --ready` until `node-name`'s own `status` is `done`, no matter where that node sits in the tree. `ft todos` shows it with a `⛔ blocked by node-name` suffix instead of hiding it. `ft lint` warns if `node-name` doesn't exist.
+- `{hitl}` — this todo needs a live human (a decision only they can make, not something an agent should resolve alone). No marker = AFK-doable by an agent, the common case. `ft next --afk-only` / `ft todos --afk-only` filter `{hitl}` todos out — the call an unattended or looped work session makes instead of the plain form.
+
+## Progress
+
+`ft tree` shows a rollup percentage next to each node: `done / total` todos summed across that node and every descendant. A node with no todos anywhere in its subtree shows no percentage (not `0%`, since there's nothing to track, not nothing done). Purely derived from existing checkboxes — no extra frontmatter.
+
 ## Time limits and TLE
 
-- Todo markers go at the end of the line, in any order: `{blocked: Q1}` `{limit: 20m}` `{tle: 20m}`.
+- Todo markers go at the end of the line, in any order: `{blocked: Q1}` `{blocked-by: node-name}` `{limit: 20m}` `{tle: 20m}` `{hitl}`.
 - `{limit: 90s|20m|2h}` overrides the default per-todo time budget for the headless driver (`ft work --task-limit`, default 20m).
 - `{tle: 20m}` is written by `ft work` when the agent ran out of time on that todo (Time Limit Exceeded): the process is killed, the todo is skipped by `ft next`, and `ft lint` warns. A human or planner then splits the todo or raises `{limit}` and removes `{tle}` (viewer: click the TLE chip).
 
