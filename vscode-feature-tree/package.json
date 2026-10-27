@@ -1,0 +1,33 @@
+{
+  "name": "feature-tree",
+  "displayName": "Feature Tree",
+  "description": "Visual, color-coded viewer for features/ markdown trees",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "workspaceContains:features/SCHEMA.md"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "featureTree.openGraph",
+        "title": "Feature Tree: Open Graph"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "tsc -p . && node --test out/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.5.0"
+  }
+}
