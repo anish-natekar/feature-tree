@@ -19,10 +19,29 @@
       write(path, text) { post({ type: "write", path, text }); },
       openRaw(path) { post({ type: "open", path }); },
       external(url) { post({ type: "external", url }); },
-      claude(prompt) { post({ type: "claude", prompt }); return "Starting Claude Code in a terminal…"; },
+      openPath(nodePath, href) { post({ type: "openPath", node: nodePath, href }); },
     };
   }
-  const host = window.FT_HOST || vscodeHost();
+
+  // Custom-editor tab bound to exactly one node document: same bridge shape, single-file "files" list.
+  function nodeHost() {
+    const api = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : { postMessage() {} };
+    let cb = null;
+    window.addEventListener("message", (e) => { if (e.data.type === "doc" && cb) cb([{ path: e.data.path, text: e.data.text }]); });
+    const post = (m) => api.postMessage(m);
+    return {
+      kind: "node", rootName: "features",
+      onFiles(f) { cb = f; post({ type: "ready" }); },
+      write(_path, text) { post({ type: "write", text }); },
+      openRaw() { post({ type: "raw" }); },
+      external(url) { post({ type: "external", url }); },
+      // single-doc mode has no node path of its own; the extension resolves hrefs against this document
+      openPath(_nodePath, href) { post({ type: "openPath", href }); },
+    };
+  }
+  const host = window.FT_HOST || (window.FT_MODE === "node" ? nodeHost() : vscodeHost());
+  const singleNode = host.kind === "node";
+  if (singleNode) document.body.classList.add("node-editor");
 
   let nodes = new Map();
   const expanded = new Set(), folded = new Set();
@@ -47,7 +66,11 @@
   }
 
   // ---------- inline links ----------
-  const INLINE_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  // second alternative matches ANY [text](href) — https?:// (opens externally) or a relative
+  // path (opens in the editor, resolved against the node the link is rendered on)
+  const INLINE_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]|\[([^\]]+)\]\(([^)\s]+)\)/g;
+  // inline code/bold/italic within plain text runs — read view renders these, edit view stays raw markdown
+  const MD_RE = /`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
 
   function refChip(name, label) {
     const ok = nodes.has(name);
@@ -62,15 +85,59 @@
     a.onclick = () => host.external(url);
     return a;
   }
-  function linkify(text, parent) {
+  // a [text](relative/path) link: opens in the editor, resolved relative to the node it's rendered on
+  function pathLink(text, href, nodePath) {
+    const a = el("span", "ext", text);
+    a.title = href;
+    a.onclick = () => {
+      if (host.openPath) host.openPath(nodePath, href);
+      else toast('Can\'t open "' + href + '" from this viewer.');
+    };
+    return a;
+  }
+  function mdLink(text, href, nodePath) {
+    return /^https?:\/\//.test(href) ? extLink(text, href) : pathLink(text, href, nodePath);
+  }
+  // append plain text with `code`/**bold**/*italic* rendered — no links here, linkify() already split those out
+  function appendInline(parent, text) {
     let last = 0, m;
-    INLINE_RE.lastIndex = 0;
-    while ((m = INLINE_RE.exec(text))) {
+    MD_RE.lastIndex = 0;
+    while ((m = MD_RE.exec(text))) {
       if (m.index > last) parent.append(text.slice(last, m.index));
-      parent.append(m[1] ? refChip(m[1].trim(), m[2]) : extLink(m[3], m[4]));
+      if (m[1] !== undefined) parent.append(el("code", "", m[1]));
+      else if (m[2] !== undefined) parent.append(el("strong", "", m[2]));
+      else parent.append(el("em", "", m[3]));
       last = m.index + m[0].length;
     }
     if (last < text.length) parent.append(text.slice(last));
+  }
+  // render loose markdown (bullet lines + plain paragraphs, with [[links]], [text](url) and `code`/**bold** resolved) for read view
+  function renderProse(text, parent, nodePath) {
+    const lines = text.split("\n");
+    let i = 0;
+    while (i < lines.length) {
+      if (lines[i].trim() === "") { i++; continue; }
+      if (/^- /.test(lines[i])) {
+        const ul = el("ul");
+        while (i < lines.length && /^- /.test(lines[i])) { ul.append(linkify(lines[i].slice(2), el("li"), nodePath)); i++; }
+        parent.append(ul);
+      } else {
+        const start = i;
+        while (i < lines.length && lines[i].trim() !== "" && !/^- /.test(lines[i])) i++;
+        parent.append(linkify(lines.slice(start, i).join(" "), el("div", "p"), nodePath));
+      }
+    }
+    return parent;
+  }
+  function linkify(text, parent, nodePath) {
+    let last = 0, m;
+    INLINE_RE.lastIndex = 0;
+    while ((m = INLINE_RE.exec(text))) {
+      if (m.index > last) appendInline(parent, text.slice(last, m.index));
+      parent.append(m[1] ? refChip(m[1].trim(), m[2]) : mdLink(m[3], m[4], nodePath));
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) appendInline(parent, text.slice(last));
     return parent;
   }
 
@@ -121,21 +188,11 @@
     inp.addEventListener("blur", () => setTimeout(close, 150));
   }
 
-  // ---------- Claude Code prompts (only node paths/names, never file text) ----------
-  const SKILL = "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). ";
-  const prompts = {
-    work: (n) => SKILL + `Implement mode for ${rel(n)} ([[${n.name}]]): follow the Work loop in the skill (ft next, skip todos blocked on questions, checkpoint the node after each todo), run the acceptance tests, then update the node per the skill. Ask me if anything is unclear and cite node paths.`,
-    interview: (n) => SKILL + `Plan mode. Interview me about ${rel(n)}: read it and linked nodes, search the web if useful, ask questions that cite node paths, then update the node and run ft lint.`,
-    triage: (n) => SKILL + (n ? `Assign a priority P0-P3 to every (P?) todo in ${rel(n)}` : "Assign a priority P0-P3 to every (P?) todo in the tree (ft todos --unassigned)") + ", using dependencies between nodes and their abstracts. Rewrite the lines in place, run ft lint, and summarise your reasoning.",
-    close: (n) => SKILL + `Verify ${rel(n)}: run its acceptance tests; if they pass, move finished todos into Implemented, set status and last_verified, run ft index and ft lint.`,
-    research: (n) => SKILL + (n ? `Research mode for ${rel(n)}` : "Research mode for the whole tree") + ": run ft questions --open, research each open question on the web and in the repo, record answers as [~] with sources per SCHEMA.md, remove stale {blocked} markers, run ft lint, and list anything still needing me.",
-    plan: () => SKILL + "Plan mode for the whole tree. Run ft tree, read the roots, and interview me about gaps or unclear features, citing node paths.",
-  };
-  async function sendClaude(prompt) {
-    try { toast((await host.claude(prompt)) || "Sent."); } catch (e) { toast("Claude action failed: " + e.message); }
-  }
-
   // ---------- editing ----------
+  const todoState = (t) => t.state || (t.done ? "x" : " ");
+  const stateIcon = (s) => (s === "x" ? "●" : s === "~" ? "◐" : "○");
+  const stateClass = (s) => (s === "x" ? " done" : s === "~" ? " progress" : "");
+  const stateLabel = (s) => (s === "x" ? "done" : s === "~" ? "in progress" : "not started");
   const timers = new Map();
   function commit(n, mutate) {
     const text = mutate(n.text);
@@ -166,17 +223,136 @@
     return w;
   }
 
+  // read view by default (rendered prose, [[links]] resolved); click to switch to a plain textarea for editing.
   function section(n, name, hint) {
+    const view = el("div", "secview");
+    view.title = "Click to edit";
     const ta = el("textarea");
-    ta.value = (n.sections[name] || "").trim();
+    ta.hidden = true;
     ta.rows = 5;
     ta.placeholder = hint;
     autoGrow(ta);
     const save = () => commit(n, (t) => FT.setSection(t, name, ta.value));
     ta.addEventListener("input", () => debounced(n.name + name, save));
+    const showView = () => {
+      view.replaceChildren();
+      const txt = (n.sections[name] || "").trim();
+      if (!txt) view.append(el("span", "empty", hint));
+      else renderProse(txt, view, n.path);
+      view.hidden = false;
+      ta.hidden = true;
+    };
+    const showEdit = () => {
+      ta.value = (n.sections[name] || "").trim();
+      view.hidden = true;
+      ta.hidden = false;
+      ta.dispatchEvent(new Event("ft-fit"));
+      ta.focus();
+    };
+    view.addEventListener("click", (e) => { if (!e.target.closest(".ref,.ext")) showEdit(); });
+    ta.addEventListener("blur", () => { save(); showView(); });
+    attachComplete(ta);
+    showView();
+    const wrap = el("div", "secwrap");
+    wrap.append(view, ta);
+    return field(name, wrap);
+  }
+
+  // Acceptance Tests: humans scan a short description, not a shell command; the run command lives in Metadata.
+  function acceptanceSection(n) {
+    const view = el("div", "secview accview");
+    view.title = "Click to edit";
+    const ta = el("textarea");
+    ta.hidden = true;
+    ta.rows = 3;
+    ta.placeholder = "Short description of what proves this feature works. The run command lives in Metadata.";
+    autoGrow(ta);
+    const save = () => commit(n, (t) => FT.setSection(t, "Acceptance Tests", ta.value));
+    ta.addEventListener("input", () => debounced(n.name + "AT", save));
+    const showView = () => {
+      view.replaceChildren();
+      const raw = (n.sections["Acceptance Tests"] || "").trim();
+      const desc = raw.replace(/`[^`]*`/g, "").replace(/[ \t]{2,}/g, " ").trim();
+      const pill = el("span", "testpill", n.tests ? "▶ run test" : "▶ no run command set");
+      pill.title = n.tests ? n.tests : "Set a run command in Metadata";
+      if (n.tests) pill.onclick = (e) => {
+        e.stopPropagation();
+        Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(n.tests)).then(() => toast("Copied: " + n.tests)).catch(() => toast(n.tests));
+      };
+      view.append(pill, linkify(desc || "(no description — click to add)", el("span", "atdesc"), n.path));
+      view.hidden = false;
+      ta.hidden = true;
+    };
+    const showEdit = () => {
+      ta.value = (n.sections["Acceptance Tests"] || "").trim();
+      view.hidden = true;
+      ta.hidden = false;
+      ta.dispatchEvent(new Event("ft-fit"));
+      ta.focus();
+    };
+    view.addEventListener("click", (e) => { if (!e.target.closest(".ref,.ext,.testpill")) showEdit(); });
+    ta.addEventListener("blur", () => { save(); showView(); });
+    attachComplete(ta);
+    showView();
+    const wrap = el("div", "secwrap");
+    wrap.append(view, ta);
+    return field("Acceptance Tests", wrap);
+  }
+
+  // Frontmatter, collapsed by default: status, where the run command lives, raw-file link.
+  function metaSection(n) {
+    const d = el("details", "afield meta");
+    const summary = el("summary");
+    summary.append(el("label", "", "Metadata"));
+    d.append(summary);
+    const body = el("div", "metabody");
+
+    const srow = el("div", "mrow");
+    srow.append(el("span", "mlabel", "status"));
+    const status = el("select", "status");
+    for (const s of FT.STATUSES) status.append(Object.assign(el("option", "", s), { value: s }));
+    status.value = n.status;
+    status.dataset.status = n.status;
+    status.onchange = () => commit(n, (t) => FT.setMeta(t, "status", status.value));
+    srow.append(status);
+    body.append(srow);
+
+    body.append(el("div", "mrow muted", rel(n) + (n.lastVerified ? "  ·  verified " + n.lastVerified : "")));
+
+    const trow = el("div", "mrow");
+    trow.append(el("span", "mlabel", "run"));
+    const tests = el("input"); tests.value = n.tests || ""; tests.placeholder = "command, test path, or manual";
+    const saveTests = () => commit(n, (t) => FT.setMeta(t, "tests", tests.value.trim() || null));
+    tests.addEventListener("input", () => debounced(n.name + "tests", saveTests));
+    tests.addEventListener("blur", saveTests);
+    trow.append(tests);
+    body.append(trow);
+
+    if (host.openRaw) {
+      const raw = el("span", "link", "open raw markdown");
+      raw.onclick = () => host.openRaw(n.path);
+      body.append(raw);
+    }
+    d.append(body);
+    return d;
+  }
+
+  function archivedSection(n) {
+    const ta = el("textarea");
+    ta.value = (n.sections["Archived"] || "").trim();
+    ta.rows = 5;
+    ta.placeholder = "Raw archived todo lines and question blocks. Written by `ft reflect`; usually left alone.";
+    autoGrow(ta);
+    const save = () => commit(n, (t) => FT.setSection(t, "Archived", ta.value));
+    ta.addEventListener("input", () => debounced(n.name + "Archived", save));
     ta.addEventListener("blur", save);
     attachComplete(ta);
-    return field(name, ta);
+    const d = el("details", "afield");
+    const summary = el("summary");
+    summary.append(el("label", "", "Archived"));
+    d.append(summary, ta);
+    d.addEventListener("toggle", () => ta.dispatchEvent(new Event("ft-fit")));
+    return d;
   }
 
   function todoBox(n) {
@@ -185,36 +361,88 @@
     const save = () => commit(n, (t) => FT.setSection(t, "Todos", FT.formatTodos(todos)));
     const prSel = (val, onChange) => {
       const s = el("select", "pr");
+      s.title = "Priority: P0 urgent → P3 nice-to-have, P? = not yet triaged";
       for (const v of ["?", 0, 1, 2, 3]) s.append(Object.assign(el("option", "", v === "?" ? "P?" : "P" + v), { value: String(v) }));
       s.value = val == null ? "?" : String(val);
-      s.onchange = () => onChange(s.value === "?" ? null : Number(s.value));
+      s.dataset.pri = s.value;
+      s.onchange = () => { s.dataset.pri = s.value; onChange(s.value === "?" ? null : Number(s.value)); };
       return s;
     };
+    // row is a <details>: the summary line is just state + priority + title (what you scan a list for),
+    // priority/limit/blocked-on move into the expandable body so the list doesn't turn into a wall of boxes
     function row(t) {
-      const r = el("div", "todo" + (t.done ? " done" : ""));
-      const cb = el("input"); cb.type = "checkbox"; cb.checked = t.done;
-      cb.onchange = () => { t.done = cb.checked; r.classList.toggle("done", t.done); save(); };
+      const r = el("details", "todo" + stateClass(todoState(t)));
+      const summary = el("summary");
+      const stop = (e) => e.stopPropagation();
+
+      const cb = el("select", "tstate");
+      cb.title = "Todo status — pick directly";
+      for (const v of [" ", "~", "x"]) cb.append(Object.assign(el("option", "", stateIcon(v) + " " + stateLabel(v)), { value: v }));
+      cb.value = todoState(t);
+      cb.dataset.tstate = todoState(t);
+      cb.addEventListener("click", stop);
+      cb.onchange = () => {
+        t.state = cb.value;
+        t.done = t.state === "x";
+        r.className = "todo" + stateClass(t.state);
+        cb.dataset.tstate = t.state;
+        save();
+      };
+
+      const prBadge = el("span", "pbadge p" + (t.priority == null ? "?" : t.priority), t.priority == null ? "P?" : "P" + t.priority);
+      prBadge.title = "Priority — click the row to expand and change it";
+
       const txt = el("input", "txt"); txt.value = t.text;
+      txt.addEventListener("click", stop);
       txt.addEventListener("input", () => { t.text = txt.value; debounced(n.name + "todos", save); });
       txt.addEventListener("blur", save);
       attachComplete(txt);
-      const del = el("span", "btn", "×"); del.title = "Delete todo";
-      del.onclick = () => { todos.splice(todos.indexOf(t), 1); save(); box.replaceChildren(...build()); };
-      const bl = el("select", "blk");
-      bl.title = "Blocked on question";
-      bl.append(Object.assign(el("option", "", "—"), { value: "" }));
-      for (const q of n.questions) bl.append(Object.assign(el("option", "", "⛔ " + q.id), { value: q.id }));
-      bl.value = t.blocked || "";
-      bl.onchange = () => { t.blocked = bl.value || null; save(); };
-      const lim = el("input", "lim"); lim.value = t.limit || ""; lim.placeholder = "limit"; lim.title = "Time limit for the agent, e.g. 20m (blank = default)";
+
+      const del = el("span", "btn del", "×"); del.title = "Delete todo";
+      del.onclick = (e) => { stop(e); todos.splice(todos.indexOf(t), 1); save(); box.replaceChildren(...build()); };
+
+      summary.append(cb, prBadge, txt);
+      if (FT.isBlocked(t, n.questions)) summary.append(Object.assign(el("span", "blk-tag", "⛔"), { title: "Blocked on " + t.blocked + " — expand to change" }));
+      if (t.tle) summary.append(Object.assign(el("span", "blk-tag", "⏱"), { title: "Aborted at the time limit (" + t.tle + ") — expand to retry" }));
+      summary.append(del);
+      r.append(summary);
+
+      const body = el("div", "tdetail");
+      body.append(prSel(t.priority, (v) => {
+        t.priority = v;
+        prBadge.className = "pbadge p" + (v == null ? "?" : v);
+        prBadge.textContent = v == null ? "P?" : "P" + v;
+        save();
+      }));
+
+      // a visible clock icon so this reads as "time limit" even when empty, not a mystery blank box
+      const limWrap = el("span", "limwrap");
+      limWrap.title = "Time limit for the agent before this todo aborts (TLE), e.g. 20m. Blank = ft work's default.";
+      const lim = el("input", "lim"); lim.value = t.limit || ""; lim.placeholder = "default";
       lim.onchange = () => { t.limit = /^\d+[smh]$/.test(lim.value.trim()) ? lim.value.trim() : null; lim.value = t.limit || ""; save(); };
-      r.append(cb, prSel(t.priority, (v) => { t.priority = v; save(); }), txt, lim, bl, del);
+      limWrap.append(el("span", "ico", "⏱"), lim);
+      body.append(limWrap);
+
+      // only show "blocked on" when there's an actual open/pending question to block on (or one already set) —
+      // an empty dropdown with nothing to pick is the "shows nothing" box, so just don't render it then
+      const blockable = n.questions.filter((q) => q.state !== "x" || q.id === t.blocked);
+      if (blockable.length) {
+        const bl = el("select", "blk");
+        bl.title = "Pause this todo until a question is answered";
+        bl.append(Object.assign(el("option", "", "not blocked"), { value: "" }));
+        for (const q of blockable) bl.append(Object.assign(el("option", "", "⛔ " + q.id), { value: q.id }));
+        bl.value = t.blocked || "";
+        bl.onchange = () => { t.blocked = bl.value || null; save(); };
+        body.append(bl);
+      }
+
       if (t.tle) {
         const retry = el("span", "btn tle", "⏱ TLE " + t.tle + " ↻");
         retry.title = "Aborted at the time limit. Click to clear and let the agent retry (consider splitting the todo or raising the limit)";
         retry.onclick = () => { t.tle = null; save(); box.replaceChildren(...build()); };
-        r.append(retry);
+        body.append(retry);
       }
+      r.append(body);
       return r;
     }
     function build() {
@@ -231,7 +459,7 @@
           box.querySelector(".add .txt").focus();
         }
       });
-      add.append(el("span"), pr, txt);
+      add.append(el("span", "cbspace"), pr, txt);
       return [...rows, add];
     }
     box.append(...build());
@@ -268,6 +496,18 @@
       txt.addEventListener("input", () => { q.text = txt.value; debounced(n.name + q.id, () => save(false)); });
       txt.addEventListener("blur", () => save(false));
       attachComplete(txt);
+
+      const optsInp = el("input", "opts");
+      optsInp.value = q.options.join(", ");
+      optsInp.placeholder = "Multiple choice: first, second, … (first = recommended; “Other” is automatic)";
+      optsInp.title = "Like AskUserQuestion: list concrete choices here. The first is the recommended one; an Other box always appears too.";
+      optsInp.addEventListener("blur", () => {
+        const next = optsInp.value.split(",").map((s) => s.trim()).filter(Boolean);
+        if (next.join("\u0001") === q.options.join("\u0001")) return;
+        q.options = next;
+        save(true);
+      });
+
       const ans = el("textarea", "ans"); ans.rows = 2; ans.value = q.answer || "";
       ans.placeholder = "Your answer… (cite sources as [text](url))";
       attachComplete(ans);
@@ -283,7 +523,33 @@
       if (q.state === " ") b("Answer", () => { if (!ans.value.trim()) return; q.answer = ans.value.trim(); q.agent = false; q.state = "x"; save(true); });
       if (q.state === "~") b("Confirm", () => { q.state = "x"; q.agent = false; save(true); });
       if (q.state !== " ") b("Reopen", () => { q.state = " "; q.answer = null; q.agent = false; save(true); });
-      r.append(head, txt, ans, btns);
+      r.append(head, txt, optsInp);
+
+      if (q.state === " " && q.options.length) {
+        // AskUserQuestion-style: pick a listed choice (first = recommended), or "Other" for free text
+        const mc = el("div", "mc");
+        const other = el("div", "mcother"); other.hidden = true; other.append(ans, btns);
+        const groupName = "mc-" + n.name + "-" + q.id;
+        const pick = (value, label, isOther) => {
+          const lab = el("label", "mcopt" + (isOther ? " other" : ""));
+          const radio = el("input"); radio.type = "radio"; radio.name = groupName;
+          radio.onchange = () => {
+            other.hidden = !isOther;
+            if (isOther) { ans.focus(); return; }
+            q.answer = value; q.agent = false; q.state = "x"; save(true);
+          };
+          lab.append(radio, el("span", "", label));
+          return lab;
+        };
+        q.options.forEach((o, i) => mc.append(pick(o, o, false)));
+        mc.append(pick(null, "Other…", true));
+        const rec = mc.querySelector(".mcopt");
+        rec.classList.add("rec");
+        rec.title = "Recommended";
+        r.append(mc, other);
+      } else {
+        r.append(ans, btns);
+      }
       return r;
     }
     function build() {
@@ -291,7 +557,7 @@
       attachComplete(add);
       add.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && add.value.trim() && !document.querySelector(".ac")) {
-          qs.push({ id: FT.nextQuestionId(qs), state: " ", text: add.value.trim(), answer: null, agent: false });
+          qs.push({ id: FT.nextQuestionId(qs), state: " ", text: add.value.trim(), answer: null, agent: false, options: [] });
           save(true);
         }
       });
@@ -337,12 +603,8 @@
     drawer.replaceChildren(grip);
     if (!n) return;
     const head = el("div", "dhead");
-    head.append(el("span", "dtitle", n.name));
-    const status = el("select", "status");
-    for (const s of FT.STATUSES) status.append(Object.assign(el("option", "", s), { value: s }));
-    status.value = n.status;
-    status.dataset.status = n.status;
-    status.onchange = () => commit(n, (t) => FT.setMeta(t, "status", status.value));
+    const dot = el("span", "sdot"); dot.dataset.status = n.status; dot.title = "status: " + n.status + " (see Metadata to change)";
+    head.append(dot, el("span", "dtitle", n.name));
     const x = el("span", "btn", "✕"); x.title = "Close";
     x.onclick = () => { selected = null; renderDrawer(); };
     const wide = el("span", "btn", "⤢"); wide.title = "Page width: toggle a one-page editing view";
@@ -353,42 +615,24 @@
       store.set("ft.drawerW", String(drawer.offsetWidth));
       renderDrawer();
     };
-    head.append(status, wide, x);
+    head.append(wide, x);
     drawer.append(head);
-    drawer.append(el("div", "path", rel(n) + (n.lastVerified ? "  ·  verified " + n.lastVerified : "")));
-    if (host.openRaw) {
-      const raw = el("span", "link", "open raw markdown");
-      raw.onclick = () => host.openRaw(n.path);
-      drawer.append(raw);
-    }
-
-    const actions = el("div", "actions");
-    for (const [label, key] of [["▶ Work next todo", "work"], ["? Interview me", "interview"], ["⚖ Triage P?", "triage"], ["🔎 Research questions", "research"], ["✓ Verify & close", "close"]]) {
-      const b = el("button", "", label);
-      b.onclick = () => sendClaude(prompts[key](n));
-      actions.append(b);
-    }
-    drawer.append(el("div", "claude-label", "Claude Code"), actions);
-
-    const tests = el("input"); tests.value = n.tests || "";
-    tests.placeholder = "command, test path, or manual";
-    const saveTests = () => commit(n, (t) => FT.setMeta(t, "tests", tests.value.trim() || null));
-    tests.addEventListener("input", () => debounced(n.name + "tests", saveTests));
-    tests.addEventListener("blur", saveTests);
-    drawer.append(field("tests (frontmatter)", tests));
+    drawer.append(metaSection(n));
     const jump = el("div", "jump");
-    for (const s of ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented", "Citations"]) {
+    for (const s of FT.SECTIONS.filter((s) => s !== "Children")) {
       const a = el("span", "chip", s);
-      a.onclick = () => { const f = [...drawer.querySelectorAll(".field > label")].find((l) => l.textContent === s); if (f) f.parentElement.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      a.onclick = () => { const f = [...drawer.querySelectorAll(".field > label, .afield > summary > label")].find((l) => l.textContent === s); if (f) f.closest(".field,.afield").scrollIntoView({ behavior: "smooth", block: "start" }); };
       jump.append(a);
     }
     drawer.append(jump);
     drawer.append(section(n, "Abstract", "What it is and why it is needed. Use [[node]] to reference features."));
-    drawer.append(section(n, "Acceptance Tests", "Command or path that passes when the feature works."));
+    drawer.append(acceptanceSection(n));
     drawer.append(todoBox(n));
     drawer.append(questionBox(n));
     drawer.append(section(n, "Implemented", "Documentation of what exists."));
+    drawer.append(section(n, "Facts & Details", "Prose distilled from confirmed questions — facts, decisions, constraints."));
     drawer.append(section(n, "Citations", "- [Title](https://…)"));
+    drawer.append(archivedSection(n));
   }
 
   // ---------- floating tree-wide todo box ----------
@@ -460,7 +704,7 @@
     for (const n of nodes.values()) {
       if (scope && !scope.has(n.name)) continue;
       n.todos.forEach((t, i) => {
-        if (t.done && !tf.done) return;
+        if (todoState(t) === "x" && !tf.done) return;
         if (!tf.pris.has(t.priority == null ? "?" : String(t.priority))) return;
         if (tf.q && !(t.text + " " + n.name).toLowerCase().includes(tf.q)) return;
         rows.push({ n, t, i });
@@ -512,11 +756,11 @@
     tlist.replaceChildren();
     if (!rows.length) tlist.append(el("div", "empty", "no questions match"));
     for (const { n, q } of rows) {
-      const blocks = n.todos.filter((t) => !t.done && t.blocked === q.id).length;
+      const blocks = n.todos.filter((t) => todoState(t) !== "x" && t.blocked === q.id).length;
       const r = el("div", "qrow " + (q.state === " " ? "open" : q.state === "~" ? "pend" : "done"));
       const line = el("div", "qline");
       line.append(el("span", "qid", q.id));
-      const text = linkify(q.text, el("span", "ttext"));
+      const text = linkify(q.text, el("span", "ttext"), n.path);
       text.onclick = (e) => { if (!e.target.closest(".ref,.ext")) { focusNode(n.name); select(n.name); } };
       const where = el("span", "twhere", n.name);
       where.title = rel(n);
@@ -524,7 +768,7 @@
       line.append(text, where);
       r.append(line);
       if (blocks && q.state === " ") r.append(el("div", "qmeta", "⛔ blocks " + blocks + " todo(s)"));
-      if (q.answer) r.append(linkify((q.agent ? "agent: " : "") + q.answer, el("div", "qmeta")));
+      if (q.answer) r.append(linkify((q.agent ? "agent: " : "") + q.answer, el("div", "qmeta"), n.path));
       if (q.state === " ") {
         const inp = el("input"); inp.placeholder = "Answer… (Enter)";
         attachComplete(inp);
@@ -553,11 +797,17 @@
     tlist.replaceChildren();
     if (!rows.length) tlist.append(el("div", "empty", "no todos match"));
     for (const { n, t, i } of rows) {
-      const r = el("div", "trow" + (t.done ? " done" : ""));
-      const cb = el("input"); cb.type = "checkbox"; cb.checked = t.done;
-      cb.onchange = () => commit(n, (txt) => FT.setSection(txt, "Todos", FT.formatTodos(n.todos.map((x, j) => (j === i ? { ...x, done: cb.checked } : x)))));
+      const r = el("div", "trow" + stateClass(todoState(t)));
+      const cb = el("select", "tstate");
+      cb.dataset.tstate = todoState(t);
+      cb.title = "Todo status — pick directly";
+      for (const v of [" ", "~", "x"]) cb.append(Object.assign(el("option", "", stateIcon(v)), { value: v }));
+      cb.value = todoState(t);
+      cb.onchange = () => {
+        commit(n, (txt) => FT.setSection(txt, "Todos", FT.formatTodos(n.todos.map((x, j) => (j === i ? { ...x, state: cb.value, done: cb.value === "x" } : x)))));
+      };
       const pr = el("span", "pbadge p" + (t.priority == null ? "?" : t.priority), t.priority == null ? "P?" : "P" + t.priority);
-      const text = linkify(t.text, el("span", "ttext"));
+      const text = linkify(t.text, el("span", "ttext"), n.path);
       if (t.tle) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⏱ TLE " + t.tle), { title: "Aborted at the time limit" })); }
       if (FT.isBlocked(t, n.questions)) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⛔ " + t.blocked), { title: "Blocked on an open question" })); }
       text.onclick = (e) => { if (!e.target.closest(".ref,.ext")) { focusNode(n.name); select(n.name); } };
@@ -621,12 +871,19 @@
     const title = el("span", "title", n.name);
     title.title = "Edit " + rel(n);
     title.onclick = () => { select(n.name); render(); };
-    const unset = n.todos.filter((t) => !t.done && t.priority == null).length;
+    const unset = n.todos.filter((t) => todoState(t) !== "x" && t.priority == null).length;
     head.append(chev, title);
     if (unset) head.append(Object.assign(el("span", "unset", "P?" + unset), { title: unset + " todo(s) without priority" }));
     const openQ = n.questions.filter((q) => q.state === " ").length;
     if (openQ) head.append(Object.assign(el("span", "qbadge", "?" + openQ), { title: openQ + " open question(s)" }));
-    head.append(el("span", "badge", n.status));
+    const statusSel = el("select", "badge statussel");
+    for (const s of FT.STATUSES) statusSel.append(Object.assign(el("option", "", s), { value: s }));
+    statusSel.value = n.status;
+    statusSel.dataset.status = n.status;
+    statusSel.title = "status — pick directly";
+    statusSel.onclick = (e) => e.stopPropagation();
+    statusSel.onchange = () => commit(n, (t) => FT.setMeta(t, "status", statusSel.value));
+    head.append(statusSel);
     if (n.children.length) {
       const f = el("span", "btn", folded.has(n.name) ? "＋" + n.children.length : "−");
       f.title = "Collapse/expand children";
@@ -637,8 +894,8 @@
 
     if (expanded.has(n.name)) {
       const d = el("div", "detail");
-      d.append(linkify(n.abstract || "(no abstract)", el("div", "abs")));
-      const open = n.todos.filter((t) => !t.done);
+      d.append(linkify(n.abstract || "(no abstract)", el("div", "abs"), n.path));
+      const open = n.todos.filter((t) => todoState(t) !== "x");
       const counts = el("div", "row");
       for (const pr of [0, 1, 2, 3, null]) {
         const cnt = open.filter((t) => t.priority === pr).length;
@@ -647,12 +904,12 @@
       if (!open.length) counts.append("no open todos");
       d.append(counts);
       const pend = n.questions.filter((q) => q.state === "~").length;
-      const blockedN = n.todos.filter((t) => !t.done && FT.isBlocked(t, n.questions)).length;
+      const blockedN = n.todos.filter((t) => todoState(t) !== "x" && FT.isBlocked(t, n.questions)).length;
       if (openQ || pend) d.append(el("div", "row", `questions: ${openQ} open${pend ? ", " + pend + " to confirm" : ""}${blockedN ? " · " + blockedN + " todo(s) blocked" : ""}`));
       d.append(el("div", "row", "tests: " + (n.tests || "none") + (n.lastVerified ? " ✓ " + n.lastVerified : "")));
       const links = el("div", "row links");
       for (const r of n.refs) links.append(refChip(r));
-      for (const ct of n.citations) links.append(extLink(ct.text, ct.url));
+      for (const ct of n.citations) links.append(mdLink(ct.text, ct.url, n.path));
       if (links.childNodes.length) d.append(links);
       d.append(el("div", "row", n.words + " words"));
       c.append(d);
@@ -719,11 +976,6 @@
     btn("expand all", () => { nodes.forEach((n) => expanded.add(n.name)); render(); });
     btn("collapse all", () => { expanded.clear(); render(); });
     btn("fit view", fitView);
-    if (nodes.size) {
-      btn("🔎 Research questions", () => sendClaude(prompts.research(null)));
-      btn("⚖ Triage all P?", () => sendClaude(prompts.triage(null)));
-      btn("💬 Plan with Claude", () => sendClaude(prompts.plan()));
-    }
   }
 
   // scale down to fit, keep clear of the (possibly wrapped) toolbar and the drawer
@@ -757,11 +1009,16 @@
 
   host.onFiles((files) => {
     nodes = FT.buildTree(files);
+    if (singleNode) {
+      selected = [...nodes.keys()][0];
+      // never rebuild the drawer under the user's cursor (debounced autosave round-trips through here)
+      if (!drawer.contains(document.activeElement)) renderDrawer();
+      return;
+    }
     render();
     if (!fitted && nodes.size) { fitted = true; fitView(); }
     // never rebuild the drawer under the user's cursor
     if (!drawer.contains(document.activeElement)) renderDrawer();
   });
-  renderEmpty();
-  renderToolbar();
+  if (!singleNode) { renderEmpty(); renderToolbar(); }
 })();

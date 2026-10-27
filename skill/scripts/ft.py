@@ -2,6 +2,7 @@
 """ft: feature tree helper. Stdlib only. Rules live in features/SCHEMA.md."""
 import argparse
 import hashlib
+import json
 import os
 import re
 import signal
@@ -11,15 +12,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-SECTIONS = ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented", "Citations", "Children"]
+SECTIONS = ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented", "Facts & Details", "Citations", "Archived", "Children"]
 STATUSES = ["planned", "in-progress", "done"]
 WARN_MIN, WARN_MAX, ERR_MAX = 80, 600, 900
 MAX_OPEN_TODOS, MAX_CHILDREN, MAX_DEPTH = 12, 8, 5  # split / regroup guards
-TODO_RE = re.compile(r"^- \[( |x)\] \(P([0-3?])\) (.+)$")
+TODO_RE = re.compile(r"^- \[( |~|x)\] \(P([0-3?])\) (.+)$")
 UNASSIGNED = 9  # sort key for (P?)
-MARK_RE = re.compile(r"\s*\{(blocked|limit|tle): ([^}]+)\}\s*$")
+MARK_RE = re.compile(r"\s*\{(blocked-by|blocked|limit|tle|hitl)(?::\s*([^}]+))?\}\s*$")
 DUR_RE = re.compile(r"^(\d+)\s*(s|m|h)$")
 Q_RE = re.compile(r"^- \[( |~|x)\] (Q\d+): (.+)$")
+O_RE = re.compile(r"^\s+- O: (.+)$")
 A_RE = re.compile(r"^\s+- A(?: \((agent)\))?: (.+)$")
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -48,20 +50,24 @@ Command or path that passes when the feature works.
 
 ## Implemented
 
+## Facts & Details
+
 ## Citations
+
+## Archived
 
 ## Children
 """
 
 
 def split_marks(text):
-    """Strip trailing {blocked: Q1} / {limit: 20m} / {tle: 30m} markers from todo text."""
+    """Strip trailing {blocked: Q1} / {blocked-by: node} / {limit: 20m} / {tle: 30m} / {hitl} markers from todo text."""
     marks = {}
     while True:
         m = MARK_RE.search(text)
         if not m:
             return text, marks
-        marks.setdefault(m.group(1), m.group(2).strip())
+        marks.setdefault(m.group(1), (m.group(2) or "").strip())
         text = text[:m.start()]
 
 
@@ -76,6 +82,22 @@ def fmt_dur(sec):
 
 def toc_line():
     return "Jump: " + " \u00b7 ".join(f"[{s}](#{s.lower().replace(' ', '-')})" for s in SECTIONS)
+
+
+def ensure_sections(text):
+    """Backfill any SECTIONS heading missing from a legacy file, in canonical position."""
+    present = set(re.findall(r"^## (.+)$", text, re.M))
+    for i, name in enumerate(SECTIONS):
+        if name in present:
+            continue
+        nxt = next((s for s in SECTIONS[i + 1:] if s in present), None)
+        heading = f"## {name}\n\n"
+        if nxt:
+            text = re.sub(rf"^(## {re.escape(nxt)}\n)", heading + r"\1", text, count=1, flags=re.M)
+        else:
+            text = text.rstrip("\n") + "\n\n" + heading
+        present.add(name)
+    return text
 
 
 def ensure_toc(text):
@@ -103,8 +125,9 @@ class Node:
             if not m:
                 continue
             text, marks = split_marks(m.group(3))
-            out.append({"done": m.group(1) == "x", "pri": UNASSIGNED if m.group(2) == "?" else int(m.group(2)),
-                        "text": text, "blocked": marks.get("blocked"), "limit": marks.get("limit"), "tle": marks.get("tle")})
+            out.append({"done": m.group(1) == "x", "state": m.group(1), "pri": UNASSIGNED if m.group(2) == "?" else int(m.group(2)),
+                        "text": text, "blocked": marks.get("blocked"), "limit": marks.get("limit"), "tle": marks.get("tle"),
+                        "blocked_by": marks.get("blocked-by") or None, "hitl": "hitl" in marks})
         return out
 
     @property
@@ -117,19 +140,31 @@ class Node:
         for line in self.sections.get("Questions", "").splitlines():
             m = Q_RE.match(line)
             if m:
-                out.append({"id": m.group(2), "state": m.group(1), "text": m.group(3), "answer": None, "agent": False})
+                out.append({"id": m.group(2), "state": m.group(1), "text": m.group(3), "answer": None, "agent": False, "options": []})
+                continue
+            o = O_RE.match(line)
+            if o and out:
+                out[-1]["options"].append(o.group(1))
                 continue
             a = A_RE.match(line)
             if a and out:
                 out[-1]["answer"], out[-1]["agent"] = a.group(2), bool(a.group(1))
         return out
 
-    def is_stuck(self, todo):
-        """Not workable now: waiting on an open question, or aborted by the time limit."""
-        return self.is_blocked(todo) or bool(todo["tle"])
+    def is_stuck(self, todo, by_name=None):
+        """Not workable now: waiting on an open question, aborted by the time limit, or gated on another node."""
+        return self.is_blocked(todo) or bool(todo["tle"]) or self.is_blocked_by_node(todo, by_name)
 
     def is_blocked(self, todo):
         return bool(todo["blocked"]) and any(q["id"] == todo["blocked"] and q["state"] == " " for q in self.questions)
+
+    def is_blocked_by_node(self, todo, by_name):
+        """Cross-branch dependency gate: blocked while the target node (anywhere in the tree) isn't done."""
+        bb = todo.get("blocked_by")
+        if not bb or by_name is None:
+            return False
+        target = by_name.get(bb)
+        return target is not None and target.meta.get("status") != "done"
 
 
 def parse(text):
@@ -200,6 +235,8 @@ def lint(nodes, root):
             e(f"sections must be exactly {SECTIONS} in order; got {heads}")
         if not n.sections.get("Abstract", "").strip():
             e("empty Abstract")
+        elif n.sections.get("Abstract", "").strip().startswith("DRAFT:"):
+            w("abstract still a DRAFT placeholder from `ft init`; replace with a real abstract")
         bad = [l for l in n.sections.get("Todos", "").splitlines()
                if l.strip().startswith("- [") and not TODO_RE.match(l.strip())]
         for l in bad:
@@ -217,6 +254,8 @@ def lint(nodes, root):
                 e(f"todo blocked on missing question {t['blocked']}")
             elif t["blocked"] and by_id[t["blocked"]]["state"] != " ":
                 w(f"todo '{t['text'][:30]}' still marked blocked but {t['blocked']} is answered; remove marker")
+            if t["blocked_by"] and t["blocked_by"] not in names:
+                w(f"todo '{t['text'][:30]}' blocked-by missing node '{t['blocked_by']}'")
         open_q = sum(1 for q in qs if q["state"] == " ")
         pending = sum(1 for q in qs if q["state"] == "~")
         if open_q:
@@ -244,7 +283,7 @@ def lint(nodes, root):
         if unset:
             w(f"{unset} todo(s) with unassigned priority (P?); infer and set")
         if any(done for done, _, _ in n.todos):
-            w("checked todo still in Todos; move to Implemented")
+            w("checked todo still in Todos; run `ft reflect`")
         if m.get("status") == "done":
             if any(not d for d, _, _ in n.todos):
                 e("done node has open todos")
@@ -276,12 +315,25 @@ def cmd_lint(a, nodes, root):
     return 1 if errs else 0
 
 
+def rollup_progress(n, nodes):
+    """(total, done) todo count across a node and all its descendants."""
+    total = len(n.todos_full)
+    done = sum(1 for t in n.todos_full if t["done"])
+    for c in children_of(nodes, n.name):
+        ct, cd = rollup_progress(c, nodes)
+        total += ct
+        done += cd
+    return total, done
+
+
 def cmd_tree(a, nodes, root):
     icon = {"planned": "○", "in-progress": "◐", "done": "●"}
 
     def walk(n, prefix=""):
         open_n = sum(1 for d, _, _ in n.todos if not d)
-        print(f"{prefix}{icon.get(n.meta.get('status'), '?')} {n.name} [{n.meta.get('status')}] {open_n} open")
+        total, done = rollup_progress(n, nodes)
+        pct = f" [{round(done / total * 100)}%]" if total else ""
+        print(f"{prefix}{icon.get(n.meta.get('status'), '?')} {n.name} [{n.meta.get('status')}] {open_n} open{pct}")
         for c in children_of(nodes, n.name):
             walk(c, prefix + "  ")
 
@@ -291,6 +343,7 @@ def cmd_tree(a, nodes, root):
 
 
 def cmd_todos(a, nodes, root):
+    by_name = {n.name: n for n in nodes}
     rows = []
     for n in nodes:
         if a.under:
@@ -302,22 +355,28 @@ def cmd_todos(a, nodes, root):
             if a.under not in chain:
                 continue
         for tf in n.todos_full:
-            done, pri, text = tf["done"], tf["pri"], tf["text"]
-            stuck = n.is_stuck(tf)
+            done, pri, text, state = tf["done"], tf["pri"], tf["text"], tf["state"]
+            stuck = n.is_stuck(tf, by_name)
             if stuck and a.ready:
+                continue
+            if a.afk_only and tf["hitl"]:
                 continue
             if n.is_blocked(tf):
                 text += f"  \u26d4 blocked on {tf['blocked']}"
+            if n.is_blocked_by_node(tf, by_name):
+                text += f"  \u26d4 blocked by {tf['blocked_by']}"
+            if tf["hitl"]:
+                text += "  \ud83d\udc64 HITL"
             if tf["tle"]:
                 text += f"  \u23f1 TLE {tf['tle']}"
             if done and not a.all:
                 continue
             if a.unassigned and pri != UNASSIGNED:
                 continue
-            rows.append((pri, n.rel, text, done))
+            rows.append((pri, n.rel, text, state))
     rows.sort(key=lambda r: (r[0], r[1]))
-    for pri, rel, text, done in rows:
-        print(f"P{'?' if pri == UNASSIGNED else pri} {'[x]' if done else '[ ]'} {text}  ({rel})")
+    for pri, rel, text, state in rows:
+        print(f"P{'?' if pri == UNASSIGNED else pri} [{state}] {text}  ({rel})")
     return 0
 
 
@@ -350,27 +409,112 @@ def replace_section(text, name, content):
     return text[:start] + (c + "\n" if c else "") + ("\n" if nxt else "") + text[end:]
 
 
-def pick_next(nodes, under=None):
+def unreflected(nodes, under=None):
+    """Confirmed [x] todos and questions not yet archived+distilled -> list of (node, kind, ident)."""
+    scope = under_filter(nodes, under)
+    out = []
+    for n in nodes:
+        if n.name not in scope:
+            continue
+        for t in n.todos_full:
+            if t["state"] == "x":
+                out.append((n, "todo", t["text"]))
+        for q in n.questions:
+            if q["state"] == "x":
+                out.append((n, "question", q["id"]))
+    return out
+
+
+def cmd_reflect(a, nodes, root):
+    if a.check:
+        problems = unreflected(nodes, a.under)
+        for n, kind, ident in problems:
+            print(f"{n.rel}: unreflected {kind} {ident!r}")
+        print(f"{len(problems)} unreflected item(s)")
+        return 1 if problems else 0
+    if not a.name:
+        print("NODE required unless --check", file=sys.stderr)
+        return 1
+    n = next((x for x in nodes if x.name == a.name), None)
+    if not n:
+        print(f"no node '{a.name}'", file=sys.stderr)
+        return 1
+    if bool(a.todo) == bool(a.question):
+        print("exactly one of --todo / --question required", file=sys.stderr)
+        return 1
+    if not a.note:
+        print("--note required", file=sys.stderr)
+        return 1
+    text = n.path.read_text()
+    if a.todo:
+        lines = n.sections.get("Todos", "").splitlines()
+        match_i, raw = None, None
+        for i, line in enumerate(lines):
+            m = TODO_RE.match(line.strip())
+            if m and m.group(1) == "x" and split_marks(m.group(3))[0] == a.todo:
+                match_i, raw = i, line
+                break
+        if match_i is None:
+            print(f"no confirmed [x] todo matching that text in {n.rel}", file=sys.stderr)
+            return 1
+        new_todos = "\n".join(l for i, l in enumerate(lines) if i != match_i)
+        text = replace_section(text, "Todos", new_todos)
+        archived = (n.sections.get("Archived", "").strip() + "\n" + raw.strip()).strip()
+        text = replace_section(text, "Archived", archived)
+        implemented = (n.sections.get("Implemented", "").strip() + "\n" + a.note.strip()).strip()
+        text = replace_section(text, "Implemented", implemented)
+    else:
+        qid = a.question
+        if not any(q["id"] == qid and q["state"] == "x" for q in n.questions):
+            print(f"no confirmed question {qid} in {n.rel}", file=sys.stderr)
+            return 1
+        lines = n.sections.get("Questions", "").splitlines()
+        block, rest, i = [], [], 0
+        while i < len(lines):
+            m = Q_RE.match(lines[i])
+            if m and m.group(2) == qid:
+                block.append(lines[i])
+                i += 1
+                while i < len(lines) and (O_RE.match(lines[i]) or A_RE.match(lines[i])):
+                    block.append(lines[i])
+                    i += 1
+            else:
+                rest.append(lines[i])
+                i += 1
+        text = replace_section(text, "Questions", "\n".join(rest))
+        archived = (n.sections.get("Archived", "").strip() + "\n" + "\n".join(block)).strip()
+        text = replace_section(text, "Archived", archived)
+        facts = (n.sections.get("Facts & Details", "").strip() + "\n" + a.note.strip()).strip()
+        text = replace_section(text, "Facts & Details", facts)
+    n.path.write_text(text)
+    print(f"reflected into {n.rel}")
+    return 0
+
+
+def pick_next(nodes, under=None, afk_only=False):
     """Highest priority open, unblocked, non-TLE, prioritised todo -> (pri, rel, text, limit_seconds|None) or None; plus count of unblocked P? todos."""
     scope = under_filter(nodes, under)
+    by_name = {n.name: n for n in nodes}
     rows = []
     unset = 0
     for n in nodes:
         if n.name not in scope:
             continue
         for t in n.todos_full:
-            if t["done"] or n.is_stuck(t):
+            if t["done"] or n.is_stuck(t, by_name):
+                continue
+            if afk_only and t["hitl"]:
                 continue
             if t["pri"] == UNASSIGNED:
                 unset += 1
             else:
-                rows.append((t["pri"], n.rel, t["text"], parse_dur(t["limit"])))
-    rows.sort(key=lambda r: (r[0], r[1]))
-    return (rows[0] if rows else None), unset
+                rows.append((t["pri"], n.rel, t["text"], parse_dur(t["limit"]), 0 if t["state"] == "~" else 1))
+    rows.sort(key=lambda r: (r[4], r[0], r[1]))
+    return ((rows[0][:4]) if rows else None), unset
 
 
 def cmd_next(a, nodes, root):
-    pick, unset = pick_next(nodes, a.under)
+    pick, unset = pick_next(nodes, a.under, a.afk_only)
     if unset:
         print(f"note: {unset} unblocked todo(s) have P? priority; triage them first", file=sys.stderr)
     if not pick:
@@ -390,8 +534,9 @@ def cmd_questions(a, nodes, root):
         for q in n.questions:
             if q["state"] in want:
                 tag = " (blocks a todo)" if q["id"] in blocked and q["state"] == " " else ""
+                opts = "".join(f"\n    {'* ' if i == 0 else '  '}{o}" for i, o in enumerate(q["options"]))
                 ans = f"\n    A{' (agent)' if q['agent'] else ''}: {q['answer']}" if q["answer"] else ""
-                print(f"{n.rel} {q['id']} [{q['state']}] {q['text']}{tag}{ans}")
+                print(f"{n.rel} {q['id']} [{q['state']}] {q['text']}{tag}{opts}{ans}")
     return 0
 
 
@@ -403,9 +548,11 @@ def cmd_ask(a, nodes, root):
     nums = [int(q["id"][1:]) for q in n.questions]
     qid = f"Q{max(nums, default=0) + 1}"
     body = n.sections.get("Questions", "").strip()
-    line = f"- [ ] {qid}: {' '.join(a.text.split())}"
-    n.path.write_text(replace_section(n.path.read_text(), "Questions", (body + "\n" if body else "") + line))
-    print(f"{qid} added to {n.rel}")
+    lines = [f"- [ ] {qid}: {' '.join(a.text.split())}"]
+    for o in a.option or []:
+        lines.append(f"  - O: {' '.join(o.split())}")
+    n.path.write_text(replace_section(n.path.read_text(), "Questions", (body + "\n" if body else "") + "\n".join(lines)))
+    print(f"{qid} added to {n.rel}" + (f" with {len(a.option)} options (first = recommended)" if a.option else ""))
     return 0
 
 
@@ -583,6 +730,180 @@ def cmd_new(a, nodes, root):
     return 0
 
 
+def _is_folder_node(node):
+    return node.path.stem == node.path.parent.name
+
+
+def _promote_to_folder(parent_node):
+    """Mirror cmd_new's leaf->folder promotion. Returns the parent's folder path."""
+    pdir = parent_node.path.parent
+    if not _is_folder_node(parent_node):
+        newdir = pdir / parent_node.name
+        newdir.mkdir()
+        parent_node.path = parent_node.path.rename(newdir / parent_node.path.name)
+        pdir = newdir
+    return pdir
+
+
+def _set_frontmatter_parent(path, new_parent_name):
+    text = path.read_text()
+    text = re.sub(r"^parent:.*$", f"parent: {new_parent_name or ''}", text, count=1, flags=re.M)
+    path.write_text(text)
+
+
+def _reparent(node, new_parent_name, nodes, root):
+    is_folder = _is_folder_node(node)
+    src = node.path.parent if is_folder else node.path
+    pdir = _promote_to_folder(next(x for x in nodes if x.name == new_parent_name)) if new_parent_name else root
+    dest = pdir / src.name
+    shutil.move(str(src), str(dest))
+    node.path = (dest / node.path.name) if is_folder else dest
+    _set_frontmatter_parent(node.path, new_parent_name)
+
+
+def _delete_file(node):
+    if _is_folder_node(node):
+        shutil.rmtree(node.path.parent)
+    else:
+        node.path.unlink()
+
+
+def cmd_delete(a, nodes, root):
+    n = next((x for x in nodes if x.name == a.name), None)
+    if not n:
+        print(f"no node '{a.name}'", file=sys.stderr)
+        return 1
+    kids = children_of(nodes, n.name)
+    if a.subtree:
+        descendants = []
+
+        def collect(name):
+            for c in children_of(nodes, name):
+                descendants.append(c)
+                collect(c.name)
+
+        collect(n.name)
+        if not a.yes:
+            print("dry run (pass --yes to apply):")
+            print(f"  delete {n.rel} and {len(descendants)} descendant(s)")
+            for d in descendants:
+                print(f"    - {d.rel}")
+            return 0
+        _delete_file(n)
+        print(f"deleted {n.rel} (+ {len(descendants)} descendant(s))")
+    else:
+        new_parent = n.meta.get("parent") or None
+        if not a.yes:
+            print("dry run (pass --yes to apply):")
+            for c in kids:
+                print(f"  reparent {c.rel} -> {new_parent or '(root)'}")
+            print(f"  delete {n.rel}")
+            return 0
+        for c in kids:
+            _reparent(c, new_parent, nodes, root)
+        _delete_file(n)
+        print(f"deleted {n.rel} ({len(kids)} child(ren) reparented to {new_parent or '(root)'})")
+    cmd_index(a, load(root), root)
+    return 0
+
+
+def cmd_rename(a, nodes, root):
+    n = next((x for x in nodes if x.name == a.old), None)
+    if not n:
+        print(f"no node '{a.old}'", file=sys.stderr)
+        return 1
+    if not NAME_RE.match(a.new) or any(x.name == a.new for x in nodes):
+        print("new name must be unique kebab-case", file=sys.stderr)
+        return 1
+    if _is_folder_node(n):
+        olddir = n.path.parent
+        newdir = olddir.parent / a.new
+        olddir.rename(newdir)
+        (newdir / n.path.name).rename(newdir / f"{a.new}.md")
+        n.path = newdir / f"{a.new}.md"
+    else:
+        n.path = n.path.rename(n.path.parent / f"{a.new}.md")
+    text = n.path.read_text()
+    text = re.sub(r"^name:.*$", f"name: {a.new}", text, count=1, flags=re.M)
+    n.path.write_text(text)
+    for c in children_of(nodes, a.old):
+        _set_frontmatter_parent(c.path, a.new)
+    link_re = re.compile(rf"\[\[{re.escape(a.old)}(\||#|\])")
+    for x in load(root):
+        t = x.path.read_text()
+        nt = link_re.sub(lambda m: f"[[{a.new}{m.group(1)}", t)
+        if nt != t:
+            x.path.write_text(nt)
+    cmd_index(a, load(root), root)
+    print(f"renamed {a.old} -> {a.new}")
+    return 0
+
+
+def cmd_move(a, nodes, root):
+    n = next((x for x in nodes if x.name == a.name), None)
+    if not n:
+        print(f"no node '{a.name}'", file=sys.stderr)
+        return 1
+    new_parent = None if a.new_parent == "-" else a.new_parent
+    if new_parent and not any(x.name == new_parent for x in nodes):
+        print(f"no parent '{new_parent}'", file=sys.stderr)
+        return 1
+    if new_parent == (n.meta.get("parent") or None):
+        print("already there", file=sys.stderr)
+        return 1
+    if new_parent and new_parent in under_filter(nodes, n.name):
+        print(f"cannot move {n.name} under its own descendant {new_parent}", file=sys.stderr)
+        return 1
+    _reparent(n, new_parent, nodes, root)
+    cmd_index(a, load(root), root)
+    print(f"moved {n.name} -> {new_parent or '(root)'}")
+    return 0
+
+
+def cmd_init(a, nodes, root):
+    if nodes:
+        print(f"{root} already has node(s); refusing to init (use `ft new` to add more)", file=sys.stderr)
+        return 1
+    src = Path(a.path).resolve()
+    abstract = None
+    readme = next(iter(sorted(src.glob("README*"))), None)
+    if readme:
+        for para in readme.read_text(errors="ignore").split("\n\n"):
+            para = " ".join(para.split())
+            if para and not para.startswith("#"):
+                abstract = para
+                break
+    name = src.name
+    pkg, pyproj = src / "package.json", src / "pyproject.toml"
+    if pkg.exists():
+        data = json.loads(pkg.read_text())
+        name = data.get("name", name)
+        abstract = abstract or data.get("description")
+    elif pyproj.exists():
+        t = pyproj.read_text()
+        m = re.search(r'(?m)^name\s*=\s*"([^"]+)"', t)
+        name = m.group(1) if m else name
+        m = re.search(r'(?m)^description\s*=\s*"([^"]+)"', t)
+        abstract = abstract or (m.group(1) if m else None)
+    name = re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-") or "project"
+    skip = {".git", "node_modules", "dist", "build", "venv", ".venv", "__pycache__", "features", ".vscode", "out"}
+    children = sorted(p.name for p in src.iterdir() if p.is_dir() and p.name not in skip and not p.name.startswith("."))[:MAX_CHILDREN]
+    path = root / name / f"{name}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(TEMPLATE.format(name=name, parent="", toc=toc_line()).replace(
+        "What this feature is and why it is needed.", abstract or "DRAFT: describe what this project is and why it exists."))
+    for c in children:
+        cname = re.sub(r"[^a-z0-9-]+", "-", c.lower()).strip("-")
+        if not cname or cname == name:
+            continue
+        cpath = path.parent / f"{cname}.md"
+        cpath.write_text(TEMPLATE.format(name=cname, parent=name, toc=toc_line()).replace(
+            "What this feature is and why it is needed.", f"DRAFT: describe what {c}/ does."))
+    print(path)
+    print("run the Plan-mode interview next to refine this draft")
+    return 0
+
+
 def cmd_view(a, nodes, root):
     """Write one self-contained HTML viewer/editor; no server. Chromium browsers write via File System Access."""
     media = Path(__file__).resolve().parents[2] / "vscode-feature-tree" / "media"
@@ -616,7 +937,7 @@ def cmd_refs(a, nodes, root):
 def cmd_index(a, nodes, root):
     for n in nodes:
         kids = children_of(nodes, n.name)
-        text = n.path.read_text()
+        text = ensure_sections(n.path.read_text())
         listing = "\n".join(f"- [[{k.name}]] ({k.meta.get('status')})" for k in kids)
         new = re.sub(r"(## Children\n).*\Z", lambda m: m.group(1) + (listing + "\n" if listing else ""), text, flags=re.S)
         new = ensure_toc(new)
@@ -638,8 +959,10 @@ def main():
     t.add_argument("--all", action="store_true", help="include checked")
     t.add_argument("--unassigned", action="store_true", help="only (P?) todos")
     t.add_argument("--ready", action="store_true", help="hide todos blocked on open questions or TLE")
+    t.add_argument("--afk-only", action="store_true", help="hide {hitl} todos; use for unattended/looped sessions")
     nx = sub.add_parser("next", help="highest priority unblocked todo")
     nx.add_argument("--under")
+    nx.add_argument("--afk-only", action="store_true", help="skip {hitl} todos; use for unattended/looped sessions")
     qs = sub.add_parser("questions", help="open + agent-answered questions")
     qs.add_argument("--under")
     qs.add_argument("--open", action="store_true", help="only unanswered")
@@ -656,6 +979,7 @@ def main():
     ak = sub.add_parser("ask", help="append a question to a node")
     ak.add_argument("name")
     ak.add_argument("text")
+    ak.add_argument("--option", action="append", help="a multiple-choice option; repeat, first = recommended, 'Other' is implicit")
     v = sub.add_parser("view")
     v.add_argument("-o", "--out", help="output html (default: <root>/viewer.html)")
     l = sub.add_parser("link")
@@ -665,11 +989,31 @@ def main():
     nw = sub.add_parser("new")
     nw.add_argument("parent", help="parent node name or '-' for root")
     nw.add_argument("name")
+    rf = sub.add_parser("reflect", help="archive confirmed todos/questions and distil them into Implemented / Facts & Details")
+    rf.add_argument("name", nargs="?", help="node to reflect (omit with --check)")
+    rf.add_argument("--todo", help="exact text of a confirmed [x] todo")
+    rf.add_argument("--question", help="id (Qn) of a confirmed [x] question")
+    rf.add_argument("--note", help="prose to append to Implemented / Facts & Details")
+    rf.add_argument("--check", action="store_true", help="exit 1 if unreflected items exist tree-wide (or --under NODE)")
+    rf.add_argument("--under", help="scope --check to this node and its descendants")
+    dl = sub.add_parser("delete", help="delete a node, reparenting its children, or a whole subtree")
+    dl.add_argument("name")
+    dl.add_argument("--subtree", action="store_true", help="delete the node and all descendants")
+    dl.add_argument("--yes", action="store_true", help="apply (default is dry-run)")
+    rn = sub.add_parser("rename", help="rename a node, updating children's parent and all wikilinks")
+    rn.add_argument("old")
+    rn.add_argument("new")
+    mv = sub.add_parser("move", help="relocate a node (and its subtree) under a different parent")
+    mv.add_argument("name")
+    mv.add_argument("new_parent", help="new parent node name or '-' for root")
+    it = sub.add_parser("init", help="bootstrap a draft tree from an existing codebase")
+    it.add_argument("path", nargs="?", default=".", help="codebase root to scan (default: .)")
     a = ap.parse_args()
     root = Path(a.root).resolve()
     nodes = load(root)
     sys.exit({"lint": cmd_lint, "tree": cmd_tree, "todos": cmd_todos,
-              "link": cmd_link, "next": cmd_next, "work": cmd_work, "questions": cmd_questions, "ask": cmd_ask, "view": cmd_view, "refs": cmd_refs, "new": cmd_new, "index": cmd_index}[a.cmd](a, nodes, root))
+              "link": cmd_link, "next": cmd_next, "work": cmd_work, "questions": cmd_questions, "ask": cmd_ask, "view": cmd_view, "refs": cmd_refs, "new": cmd_new, "index": cmd_index,
+              "reflect": cmd_reflect, "delete": cmd_delete, "rename": cmd_rename, "move": cmd_move, "init": cmd_init}[a.cmd](a, nodes, root))
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ last_verified:
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Citations](#citations) · [Children](#children)
 
 ## Abstract
-Six-axis desktop robot arm that picks and places small objects. It exists to give the project one controllable hardware target: every lower feature (gripping, motion planning, calibration) serves the single goal of moving an object from point A to point B reliably. Sample node, replace with real project features.
+Six-axis desktop robot arm that picks and places small objects. Driven by `motor_driver.py`. It exists to give the project one controllable hardware target: every lower feature (gripping, motion planning, calibration) serves the single goal of moving an object from point A to point B reliably. Sample node, replace with real project features.
 
 ## Acceptance Tests
 `pytest tests/test_robot_arm.py` passes: arm picks a 50 g block from marker A and places it within 5 mm of marker B in 10 consecutive runs.
@@ -26,6 +26,7 @@ Six-axis desktop robot arm that picks and places small objects. It exists to giv
 
 ## Citations
 - [ROS MoveIt docs](https://moveit.ros.org/)
+- [SCHEMA.md](../SCHEMA.md)
 
 ## Children
 - [[gripper]] (done)

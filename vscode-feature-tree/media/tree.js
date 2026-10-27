@@ -4,11 +4,14 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.FT = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const TODO_RE = /^- \[( |x)\] \(P([0-3?])\) (.+)$/;
+  const SECTIONS = ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented", "Facts & Details", "Citations", "Archived", "Children"];
+  const TODO_RE = /^- \[( |~|x)\] \(P([0-3?])\) (.+)$/;
   const WIKI_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/g;
-  const EXT_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  // matches both external (https?://…) and relative-path markdown links, e.g. [SKILL.md](../../skill/SKILL.md)
+  const EXT_RE = /\[([^\]]+)\]\(([^)\s]+)\)/g;
   const MARK_RE = /\s*\{(blocked|limit|tle): ([^}]+)\}\s*$/;
   const Q_RE = /^- \[( |~|x)\] (Q\d+): (.+)$/;
+  const O_RE = /^\s+- O: (.+)$/;
   const A_RE = /^\s+- A(?: \((agent)\))?: (.+)$/;
   const STATUSES = ["planned", "in-progress", "done"];
 
@@ -45,7 +48,7 @@
       let text = m[3];
       const marks = {};
       for (let b = MARK_RE.exec(text); b; b = MARK_RE.exec(text)) { text = text.slice(0, b.index); if (!(b[1] in marks)) marks[b[1]] = b[2].trim(); }
-      todos.push({ done: m[1] === "x", priority: m[2] === "?" ? null : Number(m[2]), text, blocked: marks.blocked || null, limit: marks.limit || null, tle: marks.tle || null });
+      todos.push({ done: m[1] === "x", state: m[1], priority: m[2] === "?" ? null : Number(m[2]), text, blocked: marks.blocked || null, limit: marks.limit || null, tle: marks.tle || null });
     }
     return todos;
   }
@@ -53,16 +56,19 @@
   function formatTodos(todos) {
     return todos
       .filter((t) => t.text.trim())
-      .map((t) => `- [${t.done ? "x" : " "}] (P${t.priority == null ? "?" : t.priority}) ${t.text.trim().replace(/\n/g, " ")}${t.blocked ? " {blocked: " + t.blocked + "}" : ""}${t.limit ? " {limit: " + t.limit + "}" : ""}${t.tle ? " {tle: " + t.tle + "}" : ""}`)
+      .map((t) => `- [${t.state || (t.done ? "x" : " ")}] (P${t.priority == null ? "?" : t.priority}) ${t.text.trim().replace(/\n/g, " ")}${t.blocked ? " {blocked: " + t.blocked + "}" : ""}${t.limit ? " {limit: " + t.limit + "}" : ""}${t.tle ? " {tle: " + t.tle + "}" : ""}`)
       .join("\n");
   }
 
-  /** state: " " open, "~" agent-answered (needs human confirm), "x" answered. */
+  /** state: " " open, "~" agent-answered (needs human confirm), "x" answered.
+   *  options: multiple-choice offers, first = recommended; "Other" is implicit, never stored. */
   function parseQuestions(sectionText) {
     const qs = [];
     for (const line of sectionText.split("\n")) {
       const m = Q_RE.exec(line);
-      if (m) { qs.push({ id: m[2], state: m[1], text: m[3], answer: null, agent: false }); continue; }
+      if (m) { qs.push({ id: m[2], state: m[1], text: m[3], answer: null, agent: false, options: [] }); continue; }
+      const o = O_RE.exec(line);
+      if (o && qs.length) { qs[qs.length - 1].options.push(o[1]); continue; }
       const a = A_RE.exec(line);
       if (a && qs.length) { qs[qs.length - 1].answer = a[2]; qs[qs.length - 1].agent = !!a[1]; }
     }
@@ -71,6 +77,7 @@
 
   function formatQuestions(qs) {
     return qs.map((q) => `- [${q.state}] ${q.id}: ${q.text.trim().replace(/\n/g, " ")}` +
+      (q.options || []).map((o) => `\n  - O: ${o.trim().replace(/\n/g, " ")}`).join("") +
       (q.answer ? `\n  - A${q.agent ? " (agent)" : ""}: ${q.answer.trim().replace(/\n/g, " ")}` : "")).join("\n");
   }
 
@@ -140,5 +147,5 @@
     return text.slice(0, start) + body + text.slice(end);
   }
 
-  return { TODO_RE, STATUSES, parseNode, buildTree, setMeta, setSection, parseTodos, formatTodos, parseQuestions, formatQuestions, nextQuestionId, isBlocked };
+  return { SECTIONS, TODO_RE, STATUSES, parseNode, buildTree, setMeta, setSection, parseTodos, formatTodos, parseQuestions, formatQuestions, nextQuestionId, isBlocked };
 });

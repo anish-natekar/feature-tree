@@ -5,9 +5,14 @@ import * as path from "path";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const FT = require(path.resolve(__dirname, "../../media/tree.js"));
 
-const root = path.resolve(__dirname, "../../../features");
+// A fixed copy of the sample tree, independent of the project's own (mutable) features/ directory —
+// tests must not depend on live project content that a user might reasonably edit or delete.
+// Resolved relative to this source file, not the compiled out/test/ location, so no build-step copy is needed.
+const root = path.resolve(__dirname, "../../test/fixtures");
 
-export function readFiles(dir = root, rel = ""): { path: string; text: string }[] {
+// Scoped to the robot-arm sample tree by default: features/ also holds this project's own
+// dogfooded feature-tree/* subtree, which these fixture-driven tests don't know about.
+export function readFiles(dir = root, rel = "robot-arm"): { path: string; text: string }[] {
   const out: { path: string; text: string }[] = [];
   for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
     const r = rel ? `${rel}/${e.name}` : e.name;
@@ -93,4 +98,18 @@ test("limit and tle markers survive parse/format", () => {
   assert.strictEqual(FT.formatTodos([t]), line);
   const [u] = FT.parseTodos("- [ ] (P0) plain");
   assert.deepStrictEqual([u.limit, u.tle], [null, null]);
+});
+
+test("multiple-choice question options survive parse/format, first stays first (recommended)", () => {
+  const section = "- [ ] Q1: Which license?\n  - O: MIT\n  - O: Apache-2.0\n  - O: GPL-3.0";
+  const [q] = FT.parseQuestions(section);
+  assert.deepStrictEqual(q.options, ["MIT", "Apache-2.0", "GPL-3.0"]);
+  assert.strictEqual(FT.formatQuestions([q]), section);
+  // answering still works the same whether the text came from a listed option or free-text "Other"
+  const answered = { ...q, state: "x", answer: "MIT" };
+  assert.strictEqual(FT.formatQuestions([answered]), section.replace("[ ]", "[x]") + "\n  - A: MIT");
+  // a plain question with no options round-trips with an empty options array, unchanged on disk
+  const [plain] = FT.parseQuestions("- [ ] Q2: Open-ended?");
+  assert.deepStrictEqual(plain.options, []);
+  assert.strictEqual(FT.formatQuestions([plain]), "- [ ] Q2: Open-ended?");
 });

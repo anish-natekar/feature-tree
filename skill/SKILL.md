@@ -19,15 +19,19 @@ Plan lives in `features/` as markdown. Format rules: `features/SCHEMA.md`. Helpe
 - `ft view [-o file]` — write a self-contained `features/viewer.html` (no server).
 - `ft work [--under NODE] [--max N] [--task-limit SEC] [--max-tle N] [--dry-run] -- <claude args>` — headless driver: fresh `claude -p` per step (split big nodes, triage P?, one todo, research once). Each todo has a time budget; over it → killed, marked `{tle}`, skipped. Stops on lint errors, no progress, repeated TLEs, `--max`. It adds no permission flags itself: pass e.g. `--permission-mode acceptEdits` after `--`.
 - `ft lint` — schema, size, links, question/todo consistency. Run after every edit; fix errors before moving on.
+- `ft reflect --check [--under NODE]` — exit 1 if any confirmed `[x]` todo/question hasn't been archived+distilled yet. `ft reflect NODE --todo "<text>" --note "<prose>"` / `--question Qn --note "<prose>"` — do the archiving (see Reflect below).
+- `ft delete NAME [--subtree] [--yes]`, `ft rename OLD NEW`, `ft move NAME NEW_PARENT|-` — structural edits to a mis-shaped tree. Dry-run by default for `delete`; pass `--yes` to apply.
+- `ft init [PATH]` — bootstrap a rough-draft tree from an existing codebase (refuses if `features/` is already non-empty).
 
 ## Plan mode (build/extend the tree)
 
-1. Read `ft tree` and relevant nodes first.
-2. Interview the user. Every question cites the node path and id (e.g. `features/robot-arm/gripper.md Q2`). If the user may be away, do not wait: log it with `ft ask` instead (see Questions) and keep going.
-3. Use web search to pin down what a feature requires. Record sources in `## Citations`.
-4. Create or edit nodes: Abstract states what and why; Acceptance Tests give a runnable command or `tests: manual` plus checklist; Todos carry `(P0-P3)`.
-5. Keep nodes 80–600 words: split when big, merge when tiny. Run `ft index` then `ft lint`.
-6. Do not touch project code in this mode.
+1. `ft reflect --check` first. If it exits 1, run Reflect (below) before planning anything new — don't plan on top of unreflected work.
+2. Read `ft tree` and relevant nodes first.
+3. Interview the user. Every question cites the node path and id (e.g. `features/robot-arm/gripper.md Q2`). If the user may be away, do not wait: log it with `ft ask` instead (see Questions) and keep going.
+4. Use web search to pin down what a feature requires. Record sources in `## Citations`.
+5. Create or edit nodes: Abstract states what and why; Acceptance Tests give a runnable command or `tests: manual` plus checklist; Todos carry `(P0-P3)`.
+6. Keep nodes 80–600 words: split when big, merge when tiny. Run `ft index` then `ft lint`.
+7. Do not touch project code in this mode.
 
 ## Work loop (implement mode)
 
@@ -39,8 +43,8 @@ Repeat until stopped by the user or nothing is left:
    - `ft ask NODE "question"` (state the options you see and your recommendation in the text),
    - add `{blocked: Qn}` to the end of that todo,
    - go back to step 2. Do not wait for the human.
-4. **Do it.** Implement, run the node's acceptance tests. Tests failing → keep the todo open, add the blocker to its text or ask a question.
-5. **Checkpoint (before anything else).** Only when tests pass: delete the checked todo, document the result in `## Implemented`, set `status` and `last_verified`, update the parent's status, `ft index && ft lint`. After the checkpoint everything you know that matters is on disk.
+4. **Do it.** Implement, run the node's acceptance tests. Tests failing → keep the todo open (or `[~]` if partly done), add the blocker to its text or ask a question.
+5. **Checkpoint (before anything else).** Only when tests pass: flip the todo's checkbox to `[x]` (do not delete it or write to Implemented yet — that's Reflect's job, batched later), set `status` and `last_verified`, update the parent's status, `ft index && ft lint`. After the checkpoint everything you know that matters is on disk.
 6. **Context reset point.** The checkpoint is the safe moment to compact or clear context: the next step re-reads state with `ft next` / `ft questions`, so nothing is lost. If the user wants an unattended run, finish the todo, checkpoint, and stop with "checkpointed, safe to /compact"; do not rely on remembering anything not in the files. (A model cannot trigger `/compact` itself; the user, auto-compact, or a fresh session per todo does it.)
 7. Back to step 2.
 
@@ -53,12 +57,22 @@ Research mode:
 4. Go back to the Work loop; newly unblocked todos appear in `ft next`.
 5. If still `NONE`: stop. Report the open questions grouped by node, with paths and ids, as the handoff for the human.
 
+## Reflect
+
+The Work loop's checkpoint only flips a todo to `[x]`; it doesn't archive or write it up. Reflect does that, batched, triggered by the Stop hook (which runs `ft reflect --check` and blocks if anything's outstanding) or by explicit request:
+
+1. `ft reflect --check` (or `--under NODE`) — lists every confirmed `[x]` todo and question not yet archived.
+2. For each: write a one-line (or short-paragraph) prose note — what got done / what was decided.
+3. `ft reflect NODE --todo "<exact text>" --note "<prose>"` for a todo, or `ft reflect NODE --question Qn --note "<prose>"` for a question. This moves the raw line/block to `## Archived` and the note into `## Implemented` (todos) or `## Facts & Details` (questions).
+4. `ft index && ft lint`. Repeat `ft reflect --check` until it exits 0.
+5. Only then start a new plan (see Plan mode step 1).
+
 ## Safeguards
 
 - **Time limit / TLE.** Todos may carry `{limit: 20m}`. `ft work` kills a step past its limit and writes `{tle: …}`. Never remove a `{tle}` yourself unless you first split the todo into smaller ones. Todo that hit TLE usually means too big: split it.
 - **Size.** Over 600 words, 12 open todos, 8 children or depth 5 → split the node (`ft new`, move content, `ft index`, `ft lint`). Under 80 words → merge into parent.
 - **Section index.** Each node has a `Jump:` line; never delete it, `ft index` restores it.
-- **Hooks** (optional, `skill/hooks/settings.example.json`): lint after edits under `features/`, Stop gate that refuses to end while a checked todo was not moved to Implemented or a `P?` remains, SessionStart context (`ft tree`, `ft next`). Hooks cannot enforce time limits (use `ft work`) or trigger `/compact`.
+- **Hooks** (optional, `skill/hooks/settings.example.json`): lint after edits under `features/`, Stop gate that refuses to end while a confirmed `[x]` todo/question hasn't been reflected (`ft reflect`) or a `P?` remains, SessionStart context (`ft tree`, `ft next`). Hooks cannot enforce time limits (use `ft work`) or trigger `/compact`.
 
 ## Questions
 
@@ -70,10 +84,6 @@ Research mode:
 ## Unassigned priorities
 
 Humans may log an issue as `- [ ] (P?) text`. Never leave `P?` after a planning or work pass.
-
-## Viewer prompts
-
-The viewer's buttons launch you with prompts like "Implement mode for features/<path>", "Research mode …" or "Assign a priority to every (P?) todo". Treat them as normal user requests and follow the sections above.
 
 ## Linking
 

@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 
 let panel: vscode.WebviewPanel | undefined;
+const NODE_EDITOR_VIEW_TYPE = "featureTree.node";
 
 function featuresRoot(): string | undefined {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -27,28 +27,111 @@ function safePath(root: string, rel: unknown): string | undefined {
   return abs.startsWith(root + path.sep) && fs.existsSync(abs) ? abs : undefined;
 }
 
-function html(webview: vscode.Webview, ext: vscode.Uri): string {
+/** Resolve a Citations/Abstract/etc. markdown link's href against the node file it was rendered on,
+ *  same as a browser would resolve a relative link — but refuse anything outside the workspace. */
+function resolveHref(fromAbsPath: string, href: unknown): string | undefined {
+  if (typeof href !== "string" || !href) return undefined;
+  const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!wsRoot) return undefined;
+  const target = path.resolve(path.dirname(fromAbsPath), href);
+  return (target === wsRoot || target.startsWith(wsRoot + path.sep)) && fs.existsSync(target) ? target : undefined;
+}
+
+async function openHref(fromAbsPath: string, href: unknown): Promise<void> {
+  const target = resolveHref(fromAbsPath, href);
+  if (!target) {
+    vscode.window.showWarningMessage(`Feature Tree: can't open "${href}" (missing, or outside the workspace).`);
+    return;
+  }
+  const doc = await vscode.workspace.openTextDocument(target);
+  await vscode.window.showTextDocument(doc, { preview: true });
+}
+
+function html(webview: vscode.Webview, ext: vscode.Uri, mode?: "node"): string {
   const uri = (f: string) => webview.asWebviewUri(vscode.Uri.joinPath(ext, "media", f));
   const nonce = Math.random().toString(36).slice(2);
+  const modeScript = mode ? `<script nonce="${nonce}">window.FT_MODE=${JSON.stringify(mode)};</script>` : "";
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${uri("graph.css")}"></head>
 <body><div id="toolbar"></div><div id="viewport"><div id="canvas"><svg id="edges"></svg></div></div>
+${modeScript}
 <script nonce="${nonce}" src="${uri("tree.js")}"></script>
 <script nonce="${nonce}" src="${uri("graph.js")}"></script></body></html>`;
 }
 
-/** Launch Claude Code in a terminal. Prompt goes through a temp file so no file content is ever shell-interpreted. */
-function launchClaude(prompt: string): void {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ft-prompt-"));
-  const file = path.join(dir, "prompt.txt");
-  fs.writeFileSync(file, prompt);
-  const term = vscode.window.createTerminal({ name: "Claude (feature tree)", cwd: vscode.workspace.workspaceFolders?.[0].uri });
-  term.show();
-  term.sendText(`claude "$(cat '${file}')"`);
+/** Custom editor for a single node .md: same section-card UI as the graph drawer, opened as a normal tab. */
+class FeatureNodeEditorProvider implements vscode.CustomTextEditorProvider {
+  constructor(private readonly ctx: vscode.ExtensionContext) {}
+
+  resolveCustomTextEditor(document: vscode.TextDocument, webviewPanel: vscode.WebviewPanel): void {
+    webviewPanel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.ctx.extensionUri, "media")],
+    };
+    webviewPanel.webview.html = html(webviewPanel.webview, this.ctx.extensionUri, "node");
+
+    const relPath = (): string => {
+      const root = featuresRoot();
+      const fsPath = document.uri.fsPath;
+      if (root && fsPath.startsWith(root + path.sep)) return path.relative(root, fsPath).split(path.sep).join("/");
+      return path.basename(fsPath);
+    };
+
+    const send = () => webviewPanel.webview.postMessage({ type: "doc", path: relPath(), text: document.getText() });
+
+    const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
+      if (e.document.uri.toString() === document.uri.toString()) send();
+    });
+
+    webviewPanel.webview.onDidReceiveMessage(async (m) => {
+      switch (m.type) {
+        case "ready":
+          send();
+          break;
+        case "external":
+          if (typeof m.url === "string" && /^https?:\/\//.test(m.url)) vscode.env.openExternal(vscode.Uri.parse(m.url));
+          break;
+        case "raw":
+          await vscode.commands.executeCommand("vscode.openWith", document.uri, "default", webviewPanel.viewColumn);
+          break;
+        case "openPath":
+          await openHref(document.uri.fsPath, m.href);
+          break;
+        case "write": {
+          if (typeof m.text !== "string" || m.text === document.getText()) return;
+          const edit = new vscode.WorkspaceEdit();
+          edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), m.text);
+          await vscode.workspace.applyEdit(edit);
+          await document.save();
+          break;
+        }
+      }
+    });
+
+    webviewPanel.onDidDispose(() => changeSub.dispose());
+  }
 }
 
 export function activate(ctx: vscode.ExtensionContext): void {
+  ctx.subscriptions.push(vscode.window.registerCustomEditorProvider(NODE_EDITOR_VIEW_TYPE, new FeatureNodeEditorProvider(ctx), { webviewOptions: { retainContextWhenHidden: true } }));
+
+  // always-visible button: extension only activates when features/SCHEMA.md exists, so no need to gate this
+  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusBar.text = "$(type-hierarchy) Feature Tree";
+  statusBar.tooltip = "Open Feature Tree graph";
+  statusBar.command = "featureTree.openGraph";
+  statusBar.show();
+  ctx.subscriptions.push(statusBar);
+
+  // activity-bar icon's sidebar view: no tree data of its own, just hosts the "Open Graph" viewsWelcome button
+  ctx.subscriptions.push(
+    vscode.window.registerTreeDataProvider("featureTree.sidebar", {
+      getTreeItem: (e: vscode.TreeItem) => e,
+      getChildren: () => [],
+    })
+  );
+
   ctx.subscriptions.push(
     vscode.commands.registerCommand("featureTree.openGraph", () => {
       const root = featuresRoot();
@@ -82,7 +165,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
             break;
           case "open": {
             const abs = safePath(root, m.path);
-            if (abs) vscode.window.showTextDocument(vscode.Uri.file(abs));
+            if (abs) vscode.commands.executeCommand("vscode.openWith", vscode.Uri.file(abs), NODE_EDITOR_VIEW_TYPE);
+            break;
+          }
+          case "openPath": {
+            const fromAbs = safePath(root, m.node);
+            if (fromAbs) await openHref(fromAbs, m.href);
             break;
           }
           case "write": {
@@ -96,9 +184,6 @@ export function activate(ctx: vscode.ExtensionContext): void {
             await doc.save();
             break;
           }
-          case "claude":
-            if (typeof m.prompt === "string") launchClaude(m.prompt);
-            break;
         }
       });
       const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, "**/*.md"));

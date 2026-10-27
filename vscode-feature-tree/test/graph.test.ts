@@ -14,15 +14,15 @@ function mount() {
     { runScripts: "outside-only" }
   );
   const win = dom.window as any;
-  const log = { writes: [] as { path: string; text: string }[], external: [] as string[], claude: [] as string[] };
+  const log = { writes: [] as { path: string; text: string }[], external: [] as string[], openPath: [] as { node: string; href: string }[] };
   win.FT_HOST = {
     kind: "test",
     rootName: "features",
     onFiles: (cb: (f: unknown) => void) => { win.__push = cb; cb(readFiles()); },
     write: (p: string, text: string) => log.writes.push({ path: p, text }),
     external: (u: string) => log.external.push(u),
-    claude: (p: string) => log.claude.push(p),
     openRaw: () => {},
+    openPath: (node: string, href: string) => log.openPath.push({ node, href }),
   };
   win.eval(read("tree.js"));
   win.eval(read("graph.js"));
@@ -97,16 +97,12 @@ test("drawer: status and priority edits", () => {
   assert.match(log.writes.at(-1)!.text, /\(P3\) choose planner library/);
 });
 
-test("claude buttons send prompts citing node path, never file text", () => {
-  const { doc, card, log } = mount();
+test("no claude-launch controls remain anywhere in the UI", () => {
+  const { doc, card } = mount();
   card("gripper").querySelector<HTMLElement>(".title")!.click();
-  const btn = [...doc.querySelectorAll<HTMLElement>(".drawer .actions button")].find((b) => b.textContent!.includes("Work"))!;
-  btn.click();
-  assert.strictEqual(log.claude.length, 1);
-  assert.match(log.claude[0], /features\/robot-arm\/gripper\.md/);
-  assert.doesNotMatch(log.claude[0], /Two-finger/);
-  [...doc.querySelectorAll<HTMLElement>("#toolbar button")].find((b) => b.textContent!.includes("Triage"))!.click();
-  assert.match(log.claude[1], /ft todos --unassigned/);
+  assert.strictEqual(doc.querySelectorAll(".drawer .actions, .claude-label").length, 0);
+  const labels = [...doc.querySelectorAll("button")].map((b) => b.textContent || "");
+  assert.ok(!labels.some((t) => /claude|triage|research questions/i.test(t)));
 });
 
 test("floating todo box: sorted by priority, filters, tick, jump", () => {
@@ -139,10 +135,10 @@ test("floating todo box: sorted by priority, filters, tick, jump", () => {
   assert.deepStrictEqual(order(), ["P?"]);
   q.value = "";
   q.dispatchEvent(new win.Event("input"));
-  // tick P0 todo writes [x] only there, and row leaves list
-  const cb = box.querySelector<HTMLInputElement>(".trow input")!;
-  cb.checked = true;
-  cb.dispatchEvent(new win.Event("change"));
+  // human picks the state directly (not a cycle) via the select; writes [x] only there, and row leaves list
+  const stateSel = box.querySelector<HTMLSelectElement>(".trow .tstate")!;
+  stateSel.value = "x";
+  stateSel.dispatchEvent(new win.Event("change"));
   assert.match(log.writes.at(-1)!.text, /- \[x\] \(P0\) choose planner library/);
   assert.deepStrictEqual(order(), ["P1", "P2", "P3", "P?"]);
   // click node name jumps and opens drawer
@@ -242,4 +238,170 @@ test("drawer: TLE todo shows retry that clears the marker; limit editable; jump 
   lim.value = "5m";
   lim.dispatchEvent(new win.Event("change", { bubbles: true }));
   assert.match(log.writes.at(-1)!.text, /\{limit: 5m\}/);
+});
+
+// ---------- single-node custom editor tab (window.FT_MODE === "node") ----------
+
+function mountNode(filePath: string) {
+  const dom = new JSDOM(
+    `<body><div id="toolbar"></div><div id="viewport"><div id="canvas"><svg id="edges"></svg></div></div></body>`,
+    { runScripts: "outside-only" }
+  );
+  const win = dom.window as any;
+  const posted: { type: string; [k: string]: unknown }[] = [];
+  win.FT_MODE = "node";
+  win.acquireVsCodeApi = () => ({ postMessage: (m: unknown) => posted.push(m as any) });
+  win.eval(read("tree.js"));
+  win.eval(read("graph.js"));
+  const file = readFiles().find((f) => f.path === filePath)!;
+  const push = (text: string) => win.dispatchEvent(new win.MessageEvent("message", { data: { type: "doc", path: filePath, text } }));
+  push(file.text);
+  return { doc: win.document as Document, win, posted, push, text: file.text };
+}
+
+test("node-editor mode: single doc renders full-page drawer with no graph chrome, and asks to open", () => {
+  const { doc, posted } = mountNode("robot-arm/gripper.md");
+  assert.ok(doc.body.classList.contains("node-editor"));
+  assert.ok(doc.querySelector(".drawer") && !doc.querySelector(".drawer")!.hasAttribute("hidden"), "drawer visible without clicking a card");
+  assert.strictEqual(doc.querySelectorAll(".card").length, 0, "no graph is built in single-node mode");
+  assert.ok(posted.some((m) => m.type === "ready"), "webview announced readiness so the extension sends the doc");
+  assert.strictEqual(doc.querySelector(".drawer .dtitle")!.textContent, "gripper");
+});
+
+test("node-editor mode: editing a section writes {type:'write', text} with no path, and raw/claude bridge through", () => {
+  const { doc, posted, win } = mountNode("robot-arm/gripper.md");
+  const ta = [...doc.querySelectorAll<HTMLTextAreaElement>(".drawer textarea")].find(
+    (t) => t.closest(".field")!.querySelector("label")!.textContent === "Abstract"
+  )!;
+  ta.value = "Rewritten abstract for the gripper.";
+  ta.dispatchEvent(new win.Event("blur"));
+  const write = posted.find((m) => m.type === "write")!;
+  assert.ok(write, "a write message was posted");
+  assert.strictEqual(write.path, undefined, "single-doc write carries no path — it targets the bound document");
+  assert.match(write.text as string, /Rewritten abstract for the gripper\./);
+
+  doc.querySelector<HTMLElement>(".drawer .link")!.click();
+  assert.ok(posted.some((m) => m.type === "raw"));
+});
+
+test("node-editor mode: an external doc change (e.g. edited elsewhere) re-renders the drawer when not focused", () => {
+  const { doc, push, text } = mountNode("robot-arm/gripper.md");
+  assert.strictEqual(doc.querySelector(".drawer .dtitle")!.textContent, "gripper");
+  push(text.replace("status: done", "status: planned"));
+  assert.strictEqual(doc.querySelector<HTMLSelectElement>(".drawer select.status")!.value, "planned");
+});
+
+// ---------- multiple-choice questions (AskUserQuestion-style: first = recommended, "Other" implicit) ----------
+
+function withMcQuestion() {
+  const mp = readFiles().find((f) => f.path.endsWith("motion-planning.md"))!;
+  const withOptions = mp.text.replace(
+    "- [ ] Q1: Should we depend on MoveIt (ROS 2) or write our own IK, given the arm runs on a Raspberry Pi?",
+    "- [ ] Q1: Should we depend on MoveIt (ROS 2) or write our own IK, given the arm runs on a Raspberry Pi?\n  - O: MoveIt\n  - O: Custom RRT"
+  );
+  assert.notStrictEqual(withOptions, mp.text, "fixture line must match the file on disk");
+  return readFiles().map((f) => (f.path === mp.path ? { ...f, text: withOptions } : f));
+}
+
+test("MCQ: recommended option badged first, picking a listed option answers immediately", () => {
+  const { doc, card, log, win } = mount();
+  win.__push(withMcQuestion());
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const opts = [...doc.querySelectorAll<HTMLElement>(".mc .mcopt")];
+  assert.strictEqual(opts.length, 3, "MoveIt, Custom RRT, and an implicit Other");
+  assert.ok(opts[0].classList.contains("rec"), "first option is flagged recommended");
+  assert.ok(!opts[1].classList.contains("rec"));
+  assert.match(opts[2].textContent!, /Other/);
+  assert.ok(doc.querySelector(".mcother")!.hasAttribute("hidden"), "free-text box stays hidden until Other is picked");
+
+  (opts[1].querySelector("input") as HTMLInputElement).click();
+  const write = log.writes.at(-1)!;
+  assert.match(write.text, /- \[x\] Q1: .*\n {2}- O: MoveIt\n {2}- O: Custom RRT\n {2}- A: Custom RRT/);
+});
+
+test("MCQ: picking Other reveals the free-text answer box instead of auto-answering", () => {
+  const { doc, card, log, win } = mount();
+  win.__push(withMcQuestion());
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const other = [...doc.querySelectorAll<HTMLElement>(".mc .mcopt")].at(-1)!;
+  (other.querySelector("input") as HTMLInputElement).click();
+  assert.strictEqual(log.writes.length, 0, "choosing Other must not write by itself");
+  assert.ok(!doc.querySelector(".mcother")!.hasAttribute("hidden"), "free-text box is now visible");
+  const ans = doc.querySelector<HTMLTextAreaElement>(".mcother .ans")!;
+  ans.value = "ROS 1 bridge";
+  [...doc.querySelectorAll<HTMLElement>(".mcother button")].find((b) => b.textContent === "Answer")!.click();
+  assert.match(log.writes.at(-1)!.text, /- A: ROS 1 bridge/);
+});
+
+test("MCQ: a question with no options still renders the plain free-text editor", () => {
+  const { doc, card } = mount();
+  card("gripper").querySelector<HTMLElement>(".title")!.click();
+  assert.strictEqual(doc.querySelectorAll(".drawer .mc").length, 0);
+  assert.ok(doc.querySelector(".drawer .q .ans"));
+});
+
+// ---------- todo row: blocked-on dropdown only appears when it has something to say; priority is color-coded ----------
+
+test("todo row: blocked-on dropdown hidden with no open questions, shown (and wide enough to read) when one exists", () => {
+  const { doc, card } = mount();
+  card("gripper").querySelector<HTMLElement>(".title")!.click();
+  assert.strictEqual(doc.querySelectorAll(".drawer .todo select.blk").length, 0, "gripper's only question is answered — nothing to block on");
+
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const bl = doc.querySelector<HTMLSelectElement>(".drawer .todo select.blk")!;
+  assert.ok(bl, "motion-planning has an open question, so the blocked-on control is useful here");
+  assert.deepStrictEqual([...bl.options].map((o) => o.value), ["", "Q1"]);
+  assert.strictEqual(bl.value, "Q1");
+});
+
+test("todo row: priority select carries a data-pri hook for color coding, and the limit input has a clock icon", () => {
+  const { doc, card, win } = mount();
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const pr = doc.querySelector<HTMLSelectElement>(".drawer .todo select.pr")!;
+  assert.strictEqual(pr.dataset.pri, "0");
+  pr.value = "2";
+  pr.dispatchEvent(new win.Event("change"));
+  assert.strictEqual(pr.dataset.pri, "2");
+  assert.ok(doc.querySelector(".drawer .todo .limwrap .ico"), "limit box has a persistent ⏱ affordance, not just a placeholder that vanishes on focus");
+});
+
+test("todo row collapses to state+priority+title by default; priority/limit controls live behind expand", () => {
+  const { doc, card } = mount();
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const row = doc.querySelector<HTMLDetailsElement>(".drawer .todo")!;
+  assert.strictEqual(row.tagName, "DETAILS");
+  assert.strictEqual(row.open, false, "collapsed by default");
+  assert.ok(row.querySelector("summary select.tstate"), "state picker visible in the summary");
+  assert.ok(row.querySelector("summary .pbadge"), "priority shown as a compact badge, not an editable control, in the summary");
+  assert.ok(row.querySelector("summary input.txt"), "title visible and editable in the summary");
+  assert.strictEqual(row.querySelector("summary select.pr"), null, "the priority select itself is not in the summary");
+  assert.ok(row.querySelector(".tdetail select.pr"), "priority select is in the collapsible body");
+  assert.ok(row.querySelector(".tdetail .limwrap"), "limit input is in the collapsible body");
+});
+
+test("citations: external links call host.external, relative-path links resolve against the node and call host.openPath", () => {
+  const { doc, card, log } = mount();
+  card("robot-arm").querySelector<HTMLElement>(".title")!.click();
+  const links = [...doc.querySelectorAll<HTMLElement>(".drawer .secview .ext")];
+  assert.strictEqual(links.length, 2, "both the http citation and the relative-path citation render as clickable links");
+
+  const ext = links.find((l) => l.textContent === "ROS MoveIt docs")!;
+  ext.click();
+  assert.deepStrictEqual(log.external, ["https://moveit.ros.org/"]);
+
+  const rel = links.find((l) => l.textContent === "SCHEMA.md")!;
+  assert.strictEqual(rel.title, "../SCHEMA.md", "raw relative href shown on hover instead of a dead literal string");
+  rel.click();
+  assert.deepStrictEqual(log.openPath, [{ node: "robot-arm/robot-arm.md", href: "../SCHEMA.md" }]);
+});
+
+test("abstract read view renders `code` spans instead of showing raw backticks", () => {
+  const { doc, card } = mount();
+  card("robot-arm").querySelector<HTMLElement>(".title")!.click();
+  const abs = [...doc.querySelectorAll<HTMLElement>(".drawer .field")].find(
+    (f) => f.querySelector("label")!.textContent === "Abstract"
+  )!;
+  const code = abs.querySelector(".secview code")!;
+  assert.strictEqual(code.textContent, "motor_driver.py");
+  assert.ok(!abs.querySelector(".secview")!.textContent!.includes("`"), "no literal backticks left in the rendered view");
 });

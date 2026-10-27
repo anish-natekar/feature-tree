@@ -44,9 +44,5 @@
       await w.close();
     },
     external(url) { if (/^https?:\/\//.test(url)) window.open(url, "_blank", "noopener"); },
-    async claude(prompt) {
-      await navigator.clipboard.writeText(prompt);
-      return "Prompt copied. Paste it into Claude Code.";
-    },
   };
 })();

@@ -7,7 +7,7 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "activationEvents": [
     "workspaceContains:features/SCHEMA.md"
   ],
@@ -16,6 +16,37 @@
       {
         "command": "featureTree.openGraph",
         "title": "Feature Tree: Open Graph"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "featureTree.node",
+        "displayName": "Feature Node",
+        "selector": [{ "filenamePattern": "**/features/**/*.md" }],
+        "priority": "option"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "featureTree",
+          "title": "Feature Tree",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "featureTree": [
+        {
+          "id": "featureTree.sidebar",
+          "name": "Feature Tree"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "featureTree.sidebar",
+        "contents": "View the feature tree as a graph.\n[Open Graph](command:featureTree.openGraph)"
       }
     ]
   },

@@ -24,6 +24,9 @@ body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-
 .title { flex: 1; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title:hover { text-decoration: underline; }
 .badge { padding: 1px 6px; border-radius: 10px; background: var(--c); color: #111; font-size: 10px; white-space: nowrap; }
+/* status pill doubles as a select: no native chrome, so it still reads as a plain badge until clicked */
+select.statussel { border: none; appearance: none; -webkit-appearance: none; font: inherit; cursor: pointer; }
+select.statussel:hover { filter: brightness(1.15); }
 .btn { cursor: pointer; user-select: none; opacity: .8; padding: 0 3px; }
 .btn:hover { opacity: 1; }
 .detail { padding: 0 10px 8px 10px; line-height: 1.4; }
@@ -48,23 +51,72 @@ body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-
 .drawer[hidden] { display: none; }
 .dhead { display: flex; align-items: center; gap: 8px; }
 .dtitle { flex: 1; font-size: 15px; font-weight: 700; }
-.drawer .path { opacity: .6; margin: 2px 0 4px; font-size: 11px; word-break: break-all; }
 .drawer .link { color: var(--link); cursor: pointer; font-size: 11px; text-decoration: underline; }
-.drawer .claude-label { margin-top: 10px; font-size: 11px; opacity: .7; }
-.drawer .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.sdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.sdot[data-status="done"] { background: var(--done); }
+.sdot[data-status="in-progress"] { background: var(--progress); }
+.sdot[data-status="planned"] { background: var(--planned); }
+.sdot[data-status="unknown"] { background: var(--unknown); }
+.mrow { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.mlabel { flex: none; width: 46px; opacity: .6; font-size: 11px; }
+.muted { opacity: .6; font-size: 11px; word-break: break-all; }
+.metabody { margin-top: 6px; }
+/* read view by default: rendered prose, click to edit. a dashed outline hints it's editable without looking like a plain textbox */
+.secview { padding: 5px 7px; border: 1px dashed transparent; border-radius: 4px; cursor: text; line-height: 1.45; }
+.secview:hover { border-color: var(--vscode-input-border, #555); background: rgba(127,127,127,.08); }
+.secview .empty { opacity: .5; font-style: italic; }
+.secview ul { margin: 2px 0 2px 18px; padding: 0; }
+.secview .p { margin: 0 0 6px; }
+.secview .p:last-child { margin-bottom: 0; }
+.secview[hidden], textarea[hidden] { display: none; }
+.secview code, .atdesc code, .abs code, .ttext code, .qmeta code { background: rgba(127,127,127,.18); border-radius: 3px; padding: 0 4px; font-family: var(--vscode-editor-font-family, monospace); font-size: .95em; }
+.secview strong { font-weight: 600; }
+.secview em { font-style: italic; }
+.testpill { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 10px; background: var(--link); color: #111; font-size: 11px; cursor: pointer; }
+.atdesc { opacity: .85; }
 .drawer button { cursor: pointer; background: transparent; color: inherit; border: 1px solid var(--link); border-radius: 4px; padding: 3px 8px; font-size: 11px; }
 .drawer button:hover { background: var(--link); color: #111; }
 .drawer .field { margin-top: 10px; }
 .drawer .field > label { display: block; font-size: 11px; opacity: .7; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
+.drawer .afield { margin-top: 10px; }
+.drawer .afield > summary { cursor: pointer; font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .04em; list-style: none; }
+.drawer .afield > summary::-webkit-details-marker { display: none; }
+.drawer .afield > summary::before { content: "▸ "; }
+.drawer .afield[open] > summary::before { content: "▾ "; }
+.drawer .afield > summary > label { display: inline; }
+.drawer .afield textarea { margin-top: 5px; }
 .drawer textarea, .drawer input:not([type=checkbox]), .drawer select { width: 100%; box-sizing: border-box; font: inherit; color: var(--vscode-input-foreground, inherit); background: var(--vscode-input-background, #1e1e1e); border: 1px solid var(--vscode-input-border, #555); border-radius: 4px; padding: 4px 6px; }
 .drawer textarea { resize: vertical; }
 .drawer select.status { width: auto; }
 .drawer select.status[data-status="done"] { border-color: var(--done); }
 .drawer select.status[data-status="in-progress"] { border-color: var(--progress); }
 .drawer select.status[data-status="planned"] { border-color: var(--planned); }
-.todo { display: grid; grid-template-columns: 18px 58px 1fr 52px 16px; gap: 4px; align-items: center; margin-bottom: 4px; }
+.todo { margin-bottom: 4px; }
 .todo.done .txt { text-decoration: line-through; opacity: .6; }
-.todo select.pr { padding: 3px 2px; }
+.todo.progress .txt { opacity: .85; }
+.todo .txt { flex: 1 1 100px; min-width: 70px; }
+/* a todo row is a <details>: summary (or the plain add-row) is the only thing visible by default —
+   priority/limit/blocked-on live in .tdetail, revealed by expanding, so the list reads as titles, not a form */
+.todo > summary, .todo.add { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.todo > summary { cursor: pointer; list-style: none; }
+.todo > summary::-webkit-details-marker { display: none; }
+.todo > summary::before { content: "▸"; opacity: .5; flex: none; font-size: 10px; }
+.todo[open] > summary::before { content: "▾"; }
+.tdetail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0 2px 20px; }
+/* select, not a button: human picks the state directly instead of cycling blindly through it */
+select.tstate { flex: none; width: 26px; height: 20px; padding: 0 1px; border: none; background: transparent; cursor: pointer; font-size: 13px; appearance: none; -webkit-appearance: none; }
+select.tstate[data-tstate=" "] { color: var(--planned); }
+select.tstate[data-tstate="~"] { color: var(--progress); }
+select.tstate[data-tstate="x"] { color: var(--done); }
+.todo select.pr { padding: 3px 2px; flex: none; width: 50px; }
+/* same priority palette as the floating todo list's .pN badges, so color means the same thing everywhere */
+.todo select.pr[data-pri="0"] { border-color: #d65a5a; color: #d65a5a; }
+.todo select.pr[data-pri="1"] { border-color: #e07a3f; color: #e07a3f; }
+.todo select.pr[data-pri="2"] { border-color: #5a7fd6; color: #5a7fd6; }
+.todo select.pr[data-pri="3"] { border-color: #888; color: #888; }
+.todo select.pr[data-pri="?"] { border-color: #e0a020; color: #e0a020; border-style: dashed; }
+.todo .cbspace { flex: none; width: 26px; }
+.todo .btn.del { flex: none; }
 .todo.add { margin-top: 6px; }
 .ac { position: fixed; z-index: 100; min-width: 160px; max-height: 200px; overflow-y: auto; background: var(--vscode-editorSuggestWidget-background, #252526); border: 1px solid var(--link); border-radius: 4px; font-size: 12px; }
 .ac-item { padding: 3px 8px; cursor: pointer; }
@@ -83,9 +135,10 @@ body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-
 .chip.on { opacity: 1; background: var(--cc, #888); color: #111; }
 .dl { display: flex; align-items: center; gap: 2px; opacity: .8; }
 .tlist { overflow-y: auto; padding: 4px 6px 8px; }
-.trow { display: grid; grid-template-columns: 18px 28px 1fr auto; gap: 6px; align-items: baseline; padding: 3px 4px; border-radius: 4px; }
+.trow { display: grid; grid-template-columns: 26px 28px 1fr auto; gap: 6px; align-items: baseline; padding: 3px 4px; border-radius: 4px; }
 .trow:hover { background: rgba(127,127,127,.15); }
 .trow.done .ttext { text-decoration: line-through; opacity: .6; }
+.trow.progress .ttext { opacity: .85; }
 .ttext { cursor: pointer; }
 .twhere { cursor: pointer; color: var(--link); font-size: 11px; white-space: nowrap; }
 .twhere:hover { text-decoration: underline; }
@@ -98,8 +151,7 @@ body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-
 .emptymsg[hidden] { display: none; }
 #toolbar button.primary { background: var(--link); color: #111; border-color: var(--link); }
 
-.todo.add { grid-template-columns: 18px 58px 1fr; }
-.todo select.blk { padding: 3px 0; }
+.todo select.blk { padding: 3px 4px; flex: none; max-width: 110px; border-color: var(--progress); color: var(--progress); }
 .qbadge { padding: 1px 6px; border-radius: 10px; border: 1px solid var(--link); color: var(--link); font-size: 10px; white-space: nowrap; }
 .q { border: 1px solid var(--vscode-editorWidget-border, #444); border-left: 4px solid var(--progress); border-radius: 6px; padding: 6px; margin-bottom: 8px; }
 .q.pend { border-left-color: var(--link); }
@@ -110,6 +162,13 @@ body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-
 .qstate { flex: 1; opacity: .7; font-size: 11px; }
 .qbtns { display: flex; gap: 6px; margin-top: 4px; }
 .q .ans { margin-top: 4px; }
+.q .opts { margin-top: 4px; font-size: 11px; opacity: .8; }
+.mc { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.mcopt { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.mcopt.rec span:last-child { font-weight: 600; }
+.mcopt.rec span:last-child::after { content: " ★ recommended"; font-weight: 400; opacity: .6; font-size: 10px; }
+.mcopt.other { opacity: .7; font-style: italic; }
+.mcother { margin-top: 6px; }
 .thead .tab { cursor: pointer; opacity: .55; padding: 0 4px; border-bottom: 2px solid transparent; font-weight: 700; }
 .thead .tab.on { opacity: 1; border-bottom-color: var(--link); }
 .trow.blocked .ttext { opacity: .7; }
@@ -124,9 +183,19 @@ body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-
 .chip.qo { --cc: #e0a020; } .chip.qp { --cc: #3fb8b0; } .chip.qd { --cc: #2e9e5b; }
 .jump { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .jump .chip { cursor: pointer; font-size: 11px; padding: 1px 8px; border-radius: 10px; background: var(--vscode-badge-background, #444); color: var(--vscode-badge-foreground, #fff); }
-.todo .lim { width: 52px; font-size: 11px; }
+.limwrap { display: inline-flex; align-items: center; flex: none; border: 1px solid var(--vscode-input-border, #555); border-radius: 4px; background: var(--vscode-input-background, #1e1e1e); overflow: hidden; }
+.limwrap .ico { padding: 0 3px; opacity: .6; font-size: 10px; }
+.drawer .todo .lim { width: 42px; font-size: 11px; border: none; border-radius: 0; padding: 4px 4px 4px 0; background: transparent; }
+.todo .btn.tle { flex: 0 0 100%; margin-top: 2px; }
 .btn.tle { color: var(--progress); white-space: nowrap; }
 .drawer .grip { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: ew-resize; z-index: 2; }
 .drawer .grip:hover { background: var(--link); opacity: .5; }
 .drawer.page { font-size: 14px; line-height: 1.55; }
 .drawer.page textarea { font-size: 14px; }
+
+/* Custom-editor tab for one node: the drawer IS the page, no graph chrome. */
+body.node-editor { overflow: auto; }
+body.node-editor #toolbar, body.node-editor #viewport, body.node-editor .todobox { display: none; }
+body.node-editor .drawer { position: static; width: 100% !important; max-width: none !important; height: auto; min-height: 100vh; border-left: none; box-shadow: none; padding: 16px 24px 60px; font-size: 13px; }
+body.node-editor .drawer .grip { display: none; }
+body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" makes no sense when the drawer is the whole tab */

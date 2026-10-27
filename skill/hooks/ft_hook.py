@@ -39,12 +39,13 @@ def hook_stop(data):
     root = features_root(data)
     if not root or data.get("stop_hook_active"):
         return 0
+    nodes = ft.load(root)
     problems = []
-    for n in ft.load(root):
+    for n, kind, ident in ft.unreflected(nodes):
+        problems.append(f"{n.rel}: confirmed {kind} {ident!r} not yet reflected; run `ft reflect {n.name} --{kind} ... --note \"...\"`")
+    for n in nodes:
         for t in n.todos_full:
-            if t["done"]:
-                problems.append(f"{n.rel}: checked todo '{t['text'][:40]}' still in Todos; move it to ## Implemented")
-            elif t["pri"] == ft.UNASSIGNED:
+            if t["pri"] == ft.UNASSIGNED:
                 problems.append(f"{n.rel}: todo '{t['text'][:40]}' still P?; assign a priority")
         if n.meta.get("status") == "done" and any(not t["done"] for t in n.todos_full):
             problems.append(f"{n.rel}: status done but open todos remain")
