@@ -173,6 +173,9 @@ select.tstate[data-tstate="x"] { color: var(--done); }
 .thead .tab.on { opacity: 1; border-bottom-color: var(--link); }
 .trow.blocked .ttext { opacity: .7; }
 .blk-tag { color: var(--progress); font-size: 11px; }
+.hitl-tag { font-size: 11px; }
+.hitl-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; }
+.pctbadge { padding: 1px 6px; border-radius: 10px; border: 1px solid var(--done); color: var(--done); font-size: 10px; white-space: nowrap; }
 .qrow { padding: 5px 6px; border-left: 3px solid var(--progress); margin: 4px 0; border-radius: 3px; background: rgba(127,127,127,.08); }
 .qrow.pend { border-left-color: var(--link); } .qrow.done { border-left-color: var(--done); opacity: .75; }
 .qline { display: flex; gap: 6px; align-items: baseline; }

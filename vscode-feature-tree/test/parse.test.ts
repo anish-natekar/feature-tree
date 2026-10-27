@@ -100,6 +100,33 @@ test("limit and tle markers survive parse/format", () => {
   assert.deepStrictEqual([u.limit, u.tle], [null, null]);
 });
 
+test("blocked-by and hitl markers survive parse/format", () => {
+  const line = "- [ ] (P1) do thing {blocked-by: motion-planning} {limit: 20m} {hitl}";
+  const [t] = FT.parseTodos(line);
+  assert.deepStrictEqual([t.blockedBy, t.limit, t.hitl], ["motion-planning", "20m", true]);
+  assert.strictEqual(FT.formatTodos([t]), line);
+  const [u] = FT.parseTodos("- [ ] (P0) plain");
+  assert.deepStrictEqual([u.blockedBy, u.hitl], [null, false]);
+});
+
+test("isBlockedByNode gates on target node status, independent of tree position", () => {
+  const t = tree();
+  const [gated] = FT.parseTodos("- [ ] (P1) gated {blocked-by: motion-planning}");
+  assert.ok(FT.isBlockedByNode(gated, t)); // motion-planning isn't done in the fixture
+  const done = new Map(t); done.set("motion-planning", { ...t.get("motion-planning"), status: "done" });
+  assert.ok(!FT.isBlockedByNode(gated, done));
+  const [unmarked] = FT.parseTodos("- [ ] (P1) plain");
+  assert.ok(!FT.isBlockedByNode(unmarked, t));
+});
+
+test("rollupProgress sums todos across a node and its descendants", () => {
+  const t = tree();
+  const [total, done] = FT.rollupProgress(t.get("robot-arm"), t);
+  let expectTotal = 0, expectDone = 0;
+  for (const n of t.values()) { expectTotal += n.todos.length; expectDone += n.todos.filter((x: any) => x.done).length; }
+  assert.deepStrictEqual([total, done], [expectTotal, expectDone]);
+});
+
 test("multiple-choice question options survive parse/format, first stays first (recommended)", () => {
   const section = "- [ ] Q1: Which license?\n  - O: MIT\n  - O: Apache-2.0\n  - O: GPL-3.0";
   const [q] = FT.parseQuestions(section);

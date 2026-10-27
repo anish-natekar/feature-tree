@@ -9,7 +9,7 @@
   const WIKI_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/g;
   // matches both external (https?://…) and relative-path markdown links, e.g. [SKILL.md](../../skill/SKILL.md)
   const EXT_RE = /\[([^\]]+)\]\(([^)\s]+)\)/g;
-  const MARK_RE = /\s*\{(blocked|limit|tle): ([^}]+)\}\s*$/;
+  const MARK_RE = /\s*\{(blocked-by|blocked|limit|tle|hitl)(?::\s*([^}]+))?\}\s*$/;
   const Q_RE = /^- \[( |~|x)\] (Q\d+): (.+)$/;
   const O_RE = /^\s+- O: (.+)$/;
   const A_RE = /^\s+- A(?: \((agent)\))?: (.+)$/;
@@ -47,8 +47,12 @@
       if (!m) continue;
       let text = m[3];
       const marks = {};
-      for (let b = MARK_RE.exec(text); b; b = MARK_RE.exec(text)) { text = text.slice(0, b.index); if (!(b[1] in marks)) marks[b[1]] = b[2].trim(); }
-      todos.push({ done: m[1] === "x", state: m[1], priority: m[2] === "?" ? null : Number(m[2]), text, blocked: marks.blocked || null, limit: marks.limit || null, tle: marks.tle || null });
+      for (let b = MARK_RE.exec(text); b; b = MARK_RE.exec(text)) { text = text.slice(0, b.index); if (!(b[1] in marks)) marks[b[1]] = (b[2] || "").trim(); }
+      todos.push({
+        done: m[1] === "x", state: m[1], priority: m[2] === "?" ? null : Number(m[2]), text,
+        blocked: marks.blocked || null, limit: marks.limit || null, tle: marks.tle || null,
+        blockedBy: marks["blocked-by"] || null, hitl: "hitl" in marks,
+      });
     }
     return todos;
   }
@@ -56,7 +60,7 @@
   function formatTodos(todos) {
     return todos
       .filter((t) => t.text.trim())
-      .map((t) => `- [${t.state || (t.done ? "x" : " ")}] (P${t.priority == null ? "?" : t.priority}) ${t.text.trim().replace(/\n/g, " ")}${t.blocked ? " {blocked: " + t.blocked + "}" : ""}${t.limit ? " {limit: " + t.limit + "}" : ""}${t.tle ? " {tle: " + t.tle + "}" : ""}`)
+      .map((t) => `- [${t.state || (t.done ? "x" : " ")}] (P${t.priority == null ? "?" : t.priority}) ${t.text.trim().replace(/\n/g, " ")}${t.blocked ? " {blocked: " + t.blocked + "}" : ""}${t.blockedBy ? " {blocked-by: " + t.blockedBy + "}" : ""}${t.limit ? " {limit: " + t.limit + "}" : ""}${t.tle ? " {tle: " + t.tle + "}" : ""}${t.hitl ? " {hitl}" : ""}`)
       .join("\n");
   }
 
@@ -86,6 +90,23 @@
   }
 
   const isBlocked = (todo, qs) => !!todo.blocked && qs.some((q) => q.id === todo.blocked && q.state === " ");
+
+  // Cross-branch gate: blocked while the target node (anywhere in the tree) isn't done. nodes: Map name -> node.
+  const isBlockedByNode = (todo, nodes) => !!todo.blockedBy && nodes.has(todo.blockedBy) && nodes.get(todo.blockedBy).status !== "done";
+
+  /** (total, done) todo count across a node and all its descendants. nodes: Map name -> node. */
+  function rollupProgress(node, nodes) {
+    let total = node.todos.length;
+    let done = node.todos.filter((t) => t.done).length;
+    for (const childName of node.children) {
+      const c = nodes.get(childName);
+      if (!c) continue;
+      const [ct, cd] = rollupProgress(c, nodes);
+      total += ct;
+      done += cd;
+    }
+    return [total, done];
+  }
 
   function parseNode(path, text) {
     const { meta, body } = parseFrontmatter(text);
@@ -147,5 +168,5 @@
     return text.slice(0, start) + body + text.slice(end);
   }
 
-  return { SECTIONS, TODO_RE, STATUSES, parseNode, buildTree, setMeta, setSection, parseTodos, formatTodos, parseQuestions, formatQuestions, nextQuestionId, isBlocked };
+  return { SECTIONS, TODO_RE, STATUSES, parseNode, buildTree, setMeta, setSection, parseTodos, formatTodos, parseQuestions, formatQuestions, nextQuestionId, isBlocked, isBlockedByNode, rollupProgress };
 });

@@ -173,6 +173,9 @@ select.tstate[data-tstate="x"] { color: var(--done); }
 .thead .tab.on { opacity: 1; border-bottom-color: var(--link); }
 .trow.blocked .ttext { opacity: .7; }
 .blk-tag { color: var(--progress); font-size: 11px; }
+.hitl-tag { font-size: 11px; }
+.hitl-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; }
+.pctbadge { padding: 1px 6px; border-radius: 10px; border: 1px solid var(--done); color: var(--done); font-size: 10px; white-space: nowrap; }
 .qrow { padding: 5px 6px; border-left: 3px solid var(--progress); margin: 4px 0; border-radius: 3px; background: rgba(127,127,127,.08); }
 .qrow.pend { border-left-color: var(--link); } .qrow.done { border-left-color: var(--done); opacity: .75; }
 .qline { display: flex; gap: 6px; align-items: baseline; }
@@ -210,7 +213,7 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
   const WIKI_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/g;
   // matches both external (https?://…) and relative-path markdown links, e.g. [SKILL.md](../../skill/SKILL.md)
   const EXT_RE = /\[([^\]]+)\]\(([^)\s]+)\)/g;
-  const MARK_RE = /\s*\{(blocked|limit|tle): ([^}]+)\}\s*$/;
+  const MARK_RE = /\s*\{(blocked-by|blocked|limit|tle|hitl)(?::\s*([^}]+))?\}\s*$/;
   const Q_RE = /^- \[( |~|x)\] (Q\d+): (.+)$/;
   const O_RE = /^\s+- O: (.+)$/;
   const A_RE = /^\s+- A(?: \((agent)\))?: (.+)$/;
@@ -248,8 +251,12 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
       if (!m) continue;
       let text = m[3];
       const marks = {};
-      for (let b = MARK_RE.exec(text); b; b = MARK_RE.exec(text)) { text = text.slice(0, b.index); if (!(b[1] in marks)) marks[b[1]] = b[2].trim(); }
-      todos.push({ done: m[1] === "x", state: m[1], priority: m[2] === "?" ? null : Number(m[2]), text, blocked: marks.blocked || null, limit: marks.limit || null, tle: marks.tle || null });
+      for (let b = MARK_RE.exec(text); b; b = MARK_RE.exec(text)) { text = text.slice(0, b.index); if (!(b[1] in marks)) marks[b[1]] = (b[2] || "").trim(); }
+      todos.push({
+        done: m[1] === "x", state: m[1], priority: m[2] === "?" ? null : Number(m[2]), text,
+        blocked: marks.blocked || null, limit: marks.limit || null, tle: marks.tle || null,
+        blockedBy: marks["blocked-by"] || null, hitl: "hitl" in marks,
+      });
     }
     return todos;
   }
@@ -257,7 +264,7 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
   function formatTodos(todos) {
     return todos
       .filter((t) => t.text.trim())
-      .map((t) => `- [${t.state || (t.done ? "x" : " ")}] (P${t.priority == null ? "?" : t.priority}) ${t.text.trim().replace(/\n/g, " ")}${t.blocked ? " {blocked: " + t.blocked + "}" : ""}${t.limit ? " {limit: " + t.limit + "}" : ""}${t.tle ? " {tle: " + t.tle + "}" : ""}`)
+      .map((t) => `- [${t.state || (t.done ? "x" : " ")}] (P${t.priority == null ? "?" : t.priority}) ${t.text.trim().replace(/\n/g, " ")}${t.blocked ? " {blocked: " + t.blocked + "}" : ""}${t.blockedBy ? " {blocked-by: " + t.blockedBy + "}" : ""}${t.limit ? " {limit: " + t.limit + "}" : ""}${t.tle ? " {tle: " + t.tle + "}" : ""}${t.hitl ? " {hitl}" : ""}`)
       .join("\n");
   }
 
@@ -287,6 +294,23 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
   }
 
   const isBlocked = (todo, qs) => !!todo.blocked && qs.some((q) => q.id === todo.blocked && q.state === " ");
+
+  // Cross-branch gate: blocked while the target node (anywhere in the tree) isn't done. nodes: Map name -> node.
+  const isBlockedByNode = (todo, nodes) => !!todo.blockedBy && nodes.has(todo.blockedBy) && nodes.get(todo.blockedBy).status !== "done";
+
+  /** (total, done) todo count across a node and all its descendants. nodes: Map name -> node. */
+  function rollupProgress(node, nodes) {
+    let total = node.todos.length;
+    let done = node.todos.filter((t) => t.done).length;
+    for (const childName of node.children) {
+      const c = nodes.get(childName);
+      if (!c) continue;
+      const [ct, cd] = rollupProgress(c, nodes);
+      total += ct;
+      done += cd;
+    }
+    return [total, done];
+  }
 
   function parseNode(path, text) {
     const { meta, body } = parseFrontmatter(text);
@@ -348,7 +372,7 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
     return text.slice(0, start) + body + text.slice(end);
   }
 
-  return { SECTIONS, TODO_RE, STATUSES, parseNode, buildTree, setMeta, setSection, parseTodos, formatTodos, parseQuestions, formatQuestions, nextQuestionId, isBlocked };
+  return { SECTIONS, TODO_RE, STATUSES, parseNode, buildTree, setMeta, setSection, parseTodos, formatTodos, parseQuestions, formatQuestions, nextQuestionId, isBlocked, isBlockedByNode, rollupProgress };
 });
 </script><script>// Browser host: no server. Reads/writes a chosen features/ folder via the File System Access API (Chromium).
 (function () {
@@ -803,7 +827,9 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
 
       summary.append(cb, prBadge, txt);
       if (FT.isBlocked(t, n.questions)) summary.append(Object.assign(el("span", "blk-tag", "⛔"), { title: "Blocked on " + t.blocked + " — expand to change" }));
+      if (FT.isBlockedByNode(t, nodes)) summary.append(Object.assign(el("span", "blk-tag", "⛔"), { title: "Blocked by node " + t.blockedBy + " — not done yet" }));
       if (t.tle) summary.append(Object.assign(el("span", "blk-tag", "⏱"), { title: "Aborted at the time limit (" + t.tle + ") — expand to retry" }));
+      if (t.hitl) summary.append(Object.assign(el("span", "hitl-tag", "👤"), { title: "Needs a live human — excluded from --afk-only runs" }));
       summary.append(del);
       r.append(summary);
 
@@ -835,6 +861,20 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
         bl.onchange = () => { t.blocked = bl.value || null; save(); };
         body.append(bl);
       }
+
+      const bbSel = el("select", "blk");
+      bbSel.title = "Pause this todo until a node (anywhere in the tree) is done";
+      bbSel.append(Object.assign(el("option", "", "not blocked by a node"), { value: "" }));
+      for (const name of [...nodes.keys()].sort()) if (name !== n.name) bbSel.append(Object.assign(el("option", "", "⛔ " + name), { value: name }));
+      bbSel.value = t.blockedBy || "";
+      bbSel.onchange = () => { t.blockedBy = bbSel.value || null; save(); };
+      body.append(bbSel);
+
+      const hitlLbl = el("label", "hitl-toggle");
+      const hitlCb = el("input"); hitlCb.type = "checkbox"; hitlCb.checked = !!t.hitl;
+      hitlCb.onchange = () => { t.hitl = hitlCb.checked; save(); };
+      hitlLbl.append(hitlCb, " 👤 needs a human (HITL)");
+      body.append(hitlLbl);
 
       if (t.tle) {
         const retry = el("span", "btn tle", "⏱ TLE " + t.tle + " ↻");
@@ -1210,6 +1250,8 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
       const text = linkify(t.text, el("span", "ttext"), n.path);
       if (t.tle) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⏱ TLE " + t.tle), { title: "Aborted at the time limit" })); }
       if (FT.isBlocked(t, n.questions)) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⛔ " + t.blocked), { title: "Blocked on an open question" })); }
+      if (FT.isBlockedByNode(t, nodes)) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⛔ " + t.blockedBy), { title: "Blocked by node " + t.blockedBy + " — not done yet" })); }
+      if (t.hitl) text.append(Object.assign(el("span", "hitl-tag", " 👤"), { title: "Needs a live human — excluded from --afk-only runs" }));
       text.onclick = (e) => { if (!e.target.closest(".ref,.ext")) { focusNode(n.name); select(n.name); } };
       const where = el("span", "twhere", n.name);
       where.title = rel(n);
@@ -1284,6 +1326,8 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
     statusSel.onclick = (e) => e.stopPropagation();
     statusSel.onchange = () => commit(n, (t) => FT.setMeta(t, "status", statusSel.value));
     head.append(statusSel);
+    const [rTotal, rDone] = FT.rollupProgress(n, nodes);
+    if (rTotal) head.append(Object.assign(el("span", "pctbadge", Math.round((rDone / rTotal) * 100) + "%"), { title: rDone + "/" + rTotal + " todos done across this subtree" }));
     if (n.children.length) {
       const f = el("span", "btn", folded.has(n.name) ? "＋" + n.children.length : "−");
       f.title = "Collapse/expand children";

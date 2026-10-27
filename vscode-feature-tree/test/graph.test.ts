@@ -259,6 +259,39 @@ function mountNode(filePath: string) {
   return { doc: win.document as Document, win, posted, push, text: file.text };
 }
 
+test("card shows progress rollup badge summed across node + descendants; no badge when subtree has no todos", () => {
+  const { card } = mount();
+  const badge = card("robot-arm").querySelector<HTMLElement>(".pctbadge")!;
+  assert.strictEqual(badge.textContent, "0%");
+  assert.ok(!card("gripper").querySelector(".pctbadge"), "gripper's subtree has no todos at all");
+});
+
+test("blocked-by node gates the todo until that node is done; hitl flags it everywhere; both shown in drawer and floating box", () => {
+  const { doc, win, card } = mount();
+  const mp = readFiles().find((f) => f.path.endsWith("motion-planning.md"))!;
+  const withMarks = (f: { path: string; text: string }) =>
+    f.path === mp.path ? { ...f, text: f.text.replace("limits config", "limits config {blocked-by: robot-arm} {hitl}") } : f;
+  win.__push(readFiles().map(withMarks));
+
+  [...doc.querySelectorAll<HTMLElement>("#toolbar button")].find((b) => b.textContent!.includes("Todos"))!.click();
+  const box = doc.querySelector<HTMLElement>(".todobox")!;
+  const row = [...box.querySelectorAll<HTMLElement>(".trow")].find((r) => r.textContent!.includes("limits config"))!;
+  assert.ok(row.classList.contains("blocked"), "blocked-by node flags the row (robot-arm isn't done)");
+  assert.match(row.textContent!, /⛔ robot-arm/);
+  assert.ok(row.querySelector(".hitl-tag"), "hitl glyph shown in floating box");
+
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const drawerRow = [...doc.querySelectorAll<HTMLElement>(".drawer .todo")].find((r) => (r.querySelector(".txt") as HTMLInputElement)?.value.includes("limits config"))!;
+  assert.ok(drawerRow.querySelector(".hitl-tag"), "drawer summary shows hitl glyph");
+  assert.ok(drawerRow.querySelectorAll(".blk-tag").length >= 1, "drawer summary shows blocked-by glyph");
+
+  // robot-arm becomes done -> no longer blocked
+  win.__push(readFiles().map(withMarks).map((f) => (f.path.endsWith("robot-arm.md") ? { ...f, text: f.text.replace("status: in-progress", "status: done") } : f)));
+  const box2 = doc.querySelector<HTMLElement>(".todobox")!;
+  const row2 = [...box2.querySelectorAll<HTMLElement>(".trow")].find((r) => r.textContent!.includes("limits config"))!;
+  assert.ok(!row2.classList.contains("blocked"), "unblocks once the target node is done");
+});
+
 test("node-editor mode: single doc renders full-page drawer with no graph chrome, and asks to open", () => {
   const { doc, posted } = mountNode("robot-arm/gripper.md");
   assert.ok(doc.body.classList.contains("node-editor"));

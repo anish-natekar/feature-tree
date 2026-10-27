@@ -403,7 +403,9 @@
 
       summary.append(cb, prBadge, txt);
       if (FT.isBlocked(t, n.questions)) summary.append(Object.assign(el("span", "blk-tag", "⛔"), { title: "Blocked on " + t.blocked + " — expand to change" }));
+      if (FT.isBlockedByNode(t, nodes)) summary.append(Object.assign(el("span", "blk-tag", "⛔"), { title: "Blocked by node " + t.blockedBy + " — not done yet" }));
       if (t.tle) summary.append(Object.assign(el("span", "blk-tag", "⏱"), { title: "Aborted at the time limit (" + t.tle + ") — expand to retry" }));
+      if (t.hitl) summary.append(Object.assign(el("span", "hitl-tag", "👤"), { title: "Needs a live human — excluded from --afk-only runs" }));
       summary.append(del);
       r.append(summary);
 
@@ -435,6 +437,20 @@
         bl.onchange = () => { t.blocked = bl.value || null; save(); };
         body.append(bl);
       }
+
+      const bbSel = el("select", "blk");
+      bbSel.title = "Pause this todo until a node (anywhere in the tree) is done";
+      bbSel.append(Object.assign(el("option", "", "not blocked by a node"), { value: "" }));
+      for (const name of [...nodes.keys()].sort()) if (name !== n.name) bbSel.append(Object.assign(el("option", "", "⛔ " + name), { value: name }));
+      bbSel.value = t.blockedBy || "";
+      bbSel.onchange = () => { t.blockedBy = bbSel.value || null; save(); };
+      body.append(bbSel);
+
+      const hitlLbl = el("label", "hitl-toggle");
+      const hitlCb = el("input"); hitlCb.type = "checkbox"; hitlCb.checked = !!t.hitl;
+      hitlCb.onchange = () => { t.hitl = hitlCb.checked; save(); };
+      hitlLbl.append(hitlCb, " 👤 needs a human (HITL)");
+      body.append(hitlLbl);
 
       if (t.tle) {
         const retry = el("span", "btn tle", "⏱ TLE " + t.tle + " ↻");
@@ -810,6 +826,8 @@
       const text = linkify(t.text, el("span", "ttext"), n.path);
       if (t.tle) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⏱ TLE " + t.tle), { title: "Aborted at the time limit" })); }
       if (FT.isBlocked(t, n.questions)) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⛔ " + t.blocked), { title: "Blocked on an open question" })); }
+      if (FT.isBlockedByNode(t, nodes)) { r.classList.add("blocked"); text.append(Object.assign(el("span", "blk-tag", " ⛔ " + t.blockedBy), { title: "Blocked by node " + t.blockedBy + " — not done yet" })); }
+      if (t.hitl) text.append(Object.assign(el("span", "hitl-tag", " 👤"), { title: "Needs a live human — excluded from --afk-only runs" }));
       text.onclick = (e) => { if (!e.target.closest(".ref,.ext")) { focusNode(n.name); select(n.name); } };
       const where = el("span", "twhere", n.name);
       where.title = rel(n);
@@ -884,6 +902,8 @@
     statusSel.onclick = (e) => e.stopPropagation();
     statusSel.onchange = () => commit(n, (t) => FT.setMeta(t, "status", statusSel.value));
     head.append(statusSel);
+    const [rTotal, rDone] = FT.rollupProgress(n, nodes);
+    if (rTotal) head.append(Object.assign(el("span", "pctbadge", Math.round((rDone / rTotal) * 100) + "%"), { title: rDone + "/" + rTotal + " todos done across this subtree" }));
     if (n.children.length) {
       const f = el("span", "btn", folded.has(n.name) ? "＋" + n.children.length : "−");
       f.title = "Collapse/expand children";
