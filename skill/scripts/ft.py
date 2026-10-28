@@ -16,7 +16,7 @@ SECTIONS = ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented",
 STATUSES = ["planned", "in-progress", "done"]
 WARN_MIN, WARN_MAX, ERR_MAX = 80, 600, 900
 MAX_OPEN_TODOS, MAX_CHILDREN, MAX_DEPTH = 12, 8, 5  # split / regroup guards
-CODE_SPAN_WARN, FILEREF_WARN = 6, 2  # prose should be intent/decisions/facts, not code
+CODE_SPAN_WARN, CODE_SPAN_WARN_BRANCH, FILEREF_WARN = 6, 3, 2  # prose is intent/decisions/facts, never code; branches stay more abstract than leaves
 TODO_RE = re.compile(r"^- \[( |~|x)\] \(P([0-3?])\) (.+)$")
 UNASSIGNED = 9  # sort key for (P?)
 MARK_RE = re.compile(r"\s*\{(blocked-by|blocked|limit|tle|hitl)(?::\s*([^}]+))?\}\s*$")
@@ -296,9 +296,10 @@ def lint(nodes, root):
             w(f"depth > {MAX_DEPTH}; flatten the tree")
         prose = "\n".join(n.sections.get(k, "") for k in ("Abstract", "Implemented", "Facts & Details"))
         spans = len(re.findall(r"`[^`\n]+`", prose))
-        filerefs = len(re.findall(r"\b[\w/.-]+\.(?:py|js|ts|css|json|html)\b", prose))
-        if "```" in n.body or spans > CODE_SPAN_WARN or filerefs > FILEREF_WARN:
-            w("reads like code docs (identifiers/files/code blocks in Abstract/Implemented/Facts); say what and why in plain language, keep commands in Acceptance Tests")
+        filerefs = len(re.findall(r"\b[\w/.-]+\.(?:py|js|jsx|ts|tsx|css|json|html|rs|go|java|rb|c|h|cpp|cs|sh|php|swift|kt)\b", prose))
+        span_cap = CODE_SPAN_WARN_BRANCH if kids else CODE_SPAN_WARN
+        if "```" in n.body or spans > span_cap or filerefs > FILEREF_WARN:
+            w("reads like code docs (identifiers/files/code blocks in Abstract/Implemented/Facts); describe behavior, rules and reasons in language-independent plain terms, keep commands in Acceptance Tests")
         if toc_line() not in n.body:
             w("missing section index; run `ft index`")
         if m.get("status") in STATUSES and m.get("status") != n.computed_status():

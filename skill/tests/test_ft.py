@@ -600,6 +600,24 @@ class LintBaseTests(unittest.TestCase):
 
 
 class AltitudeLintTests(unittest.TestCase):
+    def test_branches_are_held_more_abstract_than_leaves(self):
+        p = make(["- [ ] (P1) x"])
+        ft(p, "new", "alpha", "leaf")
+        f = p / "features/alpha/alpha.md"
+        f.write_text(f.read_text().replace("## Implemented\n", "## Implemented\n" + " ".join(f"`n{i}`" for i in range(4)) + "\n", 1))
+        ft(p, "index")
+        self.assertIn("reads like code docs", ft(p, "lint").stdout)  # branch: 4 spans > 3
+        g = p / "features/alpha/leaf.md"
+        g.write_text(g.read_text().replace("## Implemented\n", "## Implemented\n" + " ".join(f"`n{i}`" for i in range(4)) + "\n", 1))
+        out = ft(p, "lint").stdout
+        self.assertNotIn("leaf.md: reads like code docs", out)  # leaf: 4 spans <= 6
+
+    def test_language_specific_file_refs_warn(self):
+        p = make(["- [ ] (P1) x"])
+        f = p / "features/alpha/alpha.md"
+        f.write_text(f.read_text().replace("## Implemented\n", "## Implemented\nSee a.rs b.go c.java\n", 1))
+        self.assertIn("reads like code docs", ft(p, "lint").stdout)
+
     def test_code_heavy_prose_warns_and_plain_prose_does_not(self):
         p = make(["- [ ] (P1) x"])
         f = p / "features/alpha/alpha.md"

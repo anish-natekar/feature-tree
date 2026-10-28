@@ -1,6 +1,6 @@
 ---
 name: feature-tree
-status: done
+status: in-progress
 parent: 
 tests: manual
 last_verified: 2026-10-28
@@ -16,6 +16,7 @@ A hierarchical planning method delivered as a Claude skill plus a small command 
 manual: `python3 skill/scripts/ft.py lint` reports 0 errors across all nodes (including this subtree); `python3 skill/scripts/ft.py tree` shows all 5 children under `feature-tree`.
 
 ## Todos
+- [~] (P1) deepen every leaf node to behavior-level, language-independent documentation (what it does, inputs and outputs, rules, edge cases, kept data, decisions and why), keeping branches abstract
 
 ## Questions
 
