@@ -4,7 +4,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.FT = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const SECTIONS = ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented", "Facts & Details", "Citations", "Archived", "Children"];
+  const SECTIONS = ["Abstract", "Methodology", "Acceptance Tests", "Todos", "Questions", "Implemented", "Facts & Details", "Citations", "Archived", "Children"];
   const TODO_RE = /^- \[( |~|x)\] \(P([0-3?])\) (.+)$/;
   const WIKI_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/g;
   // matches both external (https?://…) and relative-path markdown links, e.g. [SKILL.md](../../skill/SKILL.md)

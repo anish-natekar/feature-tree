@@ -634,6 +634,7 @@
     }
     drawer.append(jump);
     drawer.append(section(n, "Abstract", "What it is and why it is needed. Use [[node]] to reference features."));
+    drawer.append(section(n, "Methodology", "How it works: approach, steps and rules, edge cases, data it keeps, and why. Plain language, no code."));
     drawer.append(acceptanceSection(n));
     drawer.append(todoBox(n));
     drawer.append(questionBox(n));

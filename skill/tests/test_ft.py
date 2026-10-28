@@ -14,10 +14,12 @@ last_verified:
 ---
 # {name}
 
-Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
+Jump: [Abstract](#abstract) · [Methodology](#methodology) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
 {abstract}
+
+## Methodology
 
 ## Acceptance Tests
 manual: check by eye.
@@ -597,6 +599,16 @@ class LintBaseTests(unittest.TestCase):
         out = self.lint_out(p).stdout
         self.assertIn("Q1 has a single option", out)
         self.assertIn("Q2 has duplicate options", out)
+
+
+class MethodologyLintTests(unittest.TestCase):
+    def test_done_leaf_without_methodology_warns(self):
+        p = make(["- [x] (P1) x"])
+        f = p / "features/alpha/alpha.md"
+        f.write_text(f.read_text().replace("status: planned", "status: done").replace("tests:", "tests: manual").replace("last_verified:", "last_verified: 2026-10-29"))
+        self.assertIn("no Methodology", ft(p, "lint").stdout)
+        f.write_text(f.read_text().replace("## Methodology\n", "## Methodology\n" + " ".join(["step"] * 45) + "\n", 1))
+        self.assertNotIn("no Methodology", ft(p, "lint").stdout)
 
 
 class AltitudeLintTests(unittest.TestCase):

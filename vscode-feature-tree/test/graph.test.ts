@@ -84,6 +84,15 @@ test("drawer: add todo with [[ autocomplete, unassigned priority, minimal diff",
   assert.ok(card("motion-planning").querySelector(".unset"), "P? badge shown");
 });
 
+test("drawer: Methodology section sits right after Abstract and is editable", () => {
+  const { doc, card } = mount();
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const heads = [...doc.querySelectorAll(".drawer .field > label")].map((e) => (e.textContent || "").trim().toLowerCase());
+  const a = heads.findIndex((h) => h.startsWith("abstract"));
+  const mth = heads.findIndex((h) => h.startsWith("methodology"));
+  assert.ok(a >= 0 && mth === a + 1, `headings: ${heads.join(" | ")}`);
+});
+
 test("drawer: status and priority edits", () => {
   const { doc, card, log, win } = mount();
   card("motion-planning").querySelector<HTMLElement>(".title")!.click();

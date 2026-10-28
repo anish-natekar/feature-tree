@@ -7,10 +7,12 @@ last_verified: 2026-10-29
 ---
 # autonomy
 
-Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
+Jump: [Abstract](#abstract) · [Methodology](#methodology) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
 Goal: make the tree a self-managing control plane. A human glances at one briefing to see progress and the few things only they can decide, then walks away; agents keep working through everything else without being around, and every decision they made alone stays visible, reviewable and reversible. The tree on disk is the only shared state: the human steers by answering questions, confirming agent assumptions, tagging work HITL, and pausing; the agent steers by `ft next --afk-only`, `ft assume` and `ft ask`. This node groups the capabilities that serve that loop; each child owns one piece.
+
+## Methodology
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.AutonomyTests` passes, and `ft status` on this repo prints a briefing whose NEEDS YOU list matches `ft questions --open`.
