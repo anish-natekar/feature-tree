@@ -219,3 +219,4 @@ body.node-editor #toolbar, body.node-editor #viewport, body.node-editor .todobox
 body.node-editor .drawer { position: static; width: 100% !important; max-width: none !important; height: auto; min-height: 100vh; border-left: none; box-shadow: none; padding: 16px 24px 60px; font-size: 13px; }
 body.node-editor .drawer .grip { display: none; }
 body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" makes no sense when the drawer is the whole tab */
+.todobox [hidden] { display: none !important; }

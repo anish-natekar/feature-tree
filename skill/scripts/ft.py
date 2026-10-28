@@ -576,7 +576,7 @@ def cmd_ask(a, nodes, root):
 WORK_PROMPTS = {
     "triage": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Triage only: run `ft todos --unassigned`{scope}, assign P0-P3 to every (P?) todo by rewriting the line in place, run `ft lint`, then stop.",
     "work": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Do exactly ONE iteration of the Work loop{scope}: run `ft next`, implement that todo, run the node's acceptance tests, then checkpoint the node (steps 3-5; if the todo is blocked on a decision, `ft ask` and add {{blocked: Qn}} instead). Run `ft lint`. Then stop; do not start another todo.",
-    "reflect": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Reflect only{scope}: run `ft reflect --check`, then for every item write a one-line prose note and archive it with `ft reflect NODE --todo \"<exact text>\" --note \"...\"` (or --question Qn), then `ft index` and `ft lint`. Then stop.",
+    "reflect": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Reflect only{scope}. The project root is the current directory; use `python3 skill/scripts/ft.py` for every ft command and do not read anything outside it. Run `ft reflect --check`, then for every item write a one-line prose note and archive it with `ft reflect NODE --todo \"<exact text>\" --note \"...\"` (or --question Qn), then `ft index` and `ft lint`. Then stop.",
     "research": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Research mode{scope}: `ft questions --open`; research each on the web and in the repo; record answers as [~] with sources, remove stale {{blocked}} markers, run `ft lint`. Then stop.",
     "split": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Split node {node} ({why}): move cohesive todos/content into new child nodes with `ft new`, keep the Abstract of the parent short, update links, run `ft index` and `ft lint`. Do not change project code. Then stop.",
 }
@@ -1078,6 +1078,8 @@ def cmd_refs(a, nodes, root):
 
 def cmd_index(a, nodes, root):
     for n in nodes:
+        if "status" not in n.meta:
+            continue  # not a feature node (README, SKILL.md): never rewrite stray markdown
         kids = children_of(nodes, n.name)
         orig = n.path.read_text()
         text = ensure_sections(orig)

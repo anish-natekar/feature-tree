@@ -485,3 +485,12 @@ class AutonomyTests(unittest.TestCase):
         self.assertEqual(calls[0], "Reflect", calls)
         self.assertEqual(ft(p, "reflect", "--check").returncode, 0)
         self.assertIn("already finished", (p / "features/alpha/alpha.md").read_text().split("## Archived")[1])
+
+
+class IndexSafetyTests(unittest.TestCase):
+    def test_index_never_rewrites_non_node_markdown(self):
+        p = make(["- [ ] (P1) x"])
+        stray = p / "features" / "README.md"
+        stray.write_text("---\nname: readme\ndescription: not a node\n---\n# readme\n\nhello\n")
+        ft(p, "index")
+        self.assertEqual(stray.read_text(), "---\nname: readme\ndescription: not a node\n---\n# readme\n\nhello\n")
