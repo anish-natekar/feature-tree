@@ -31,7 +31,7 @@ AutonomyTests e2e: assume unblocks a gated todo, ft work finishes the rest with 
 - [x] (P2) run `ft work` unattended end to end on a throwaway sample tree and confirm it finishes, pauses on `ft pause`, and leaves a clean `ft status` handoff
 
 ## Children
-- [[autonomy-in-ui]] (planned)
+- [[autonomy-in-ui]] (done)
 - [[human-briefing]] (done)
 - [[kill-switch]] (done)
 - [[unattended-decisions]] (done)
