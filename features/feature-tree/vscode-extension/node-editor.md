@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-A custom editor that opens a single node as its own editor tab, reusing the drawer UI instead of showing raw markdown. It re-renders live whenever the underlying document changes and talks to the file through a small write, raw and external message bridge. It is purely a visualizer and editor, with no bridge for launching agents.
+A custom editor that opens a single plan node as its own editor tab, showing the same section cards as the graph drawer instead of raw markdown. It stays in sync with the underlying document, so edits made by a person, an agent or another tool appear immediately. It is purely a viewer and editor; it has no way to launch agents.
 
 ## Acceptance Tests
 `cd vscode-feature-tree && npm test` (after `tsc -p .`), then `node --test --test-name-pattern "node-editor" out/test/graph.test.js` passes (3 tests, all titled `node-editor mode: ...`).
@@ -24,10 +24,18 @@ A custom editor that opens a single node as its own editor tab, reusing the draw
   - A (agent): assumed default 'Keep opt-in (current — `priority: "option"` in `customEditors`, opened explicitly via "Open With" or from the graph panel)' while unattended; unconfirmed, reopen to change
 
 ## Implemented
-- Single-node editor tab reusing the drawer UI, with live re-render on document changes, the write, raw and external message bridge, and styling that hides the graph chrome so the node fills the tab.
-Decision (agent-assumed, unconfirmed Q1): the editor stays opt-in, opened explicitly through Open With or from the graph panel, rather than replacing plain markdown. Revisit by reopening Q1.
+- Opening: the editor is opt-in. A person picks it explicitly from the open-with choice on a plan file, or reaches it from a card in the graph panel. Plain markdown stays the default.
+- Display: the graph chrome (toolbar, canvas, floating box) is hidden so the single node fills the tab. The node is identified by its path relative to the plan folder, or just its file name if the file lies outside it.
+- Live sync: whenever the document changes, for any reason, the full text is pushed to the page and redrawn. The drawer is not rebuilt while a field has focus, so typing is not interrupted.
+- Writing: a change in the page replaces the whole document text and saves it. Identical text is ignored, which prevents echo loops. Because the write goes through the editor's document, undo works.
+- Raw view: a control reopens the same file in the plain text editor in the same tab group.
+- Links: a relative link in a section opens the target if it exists inside the workspace; otherwise a warning is shown.
+- Decision, assumed by the agent while unattended and unconfirmed: the editor stays opt-in rather than replacing plain markdown for plan files. Reopen the question to change it.
 
 ## Facts & Details
+- Why opt-in: replacing the default editor would surprise people who just want to edit text or diff in version control,.
+- Messages exchanged with the editor host are deliberately few: ready, write, raw view, open link and open web address. No message can start a process.
+- Data kept: none of its own; the document is the only state.
 
 ## Citations
 - [features/SCHEMA.md](../../SCHEMA.md)

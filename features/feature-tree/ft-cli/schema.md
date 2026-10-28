@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-The node format itself: frontmatter plus nine sections in a fixed order (Abstract, Acceptance Tests, Todos, Questions, Implemented, Facts & Details, Citations, Archived, Children). The tool reads and writes nodes so that an unedited file comes back byte-for-byte identical, which keeps diffs clean. The foundational lint checks live here too: schema and section-order errors, size warnings above 600 words, a missing or stale jump line (fixable by re-indexing), and broken parent, child or wikilink references. Todos have three states (not started, in progress, done), mirroring the convention already used for questions.
+The node format itself: a small metadata header followed by nine sections in fixed order: Abstract, Acceptance Tests, Todos, Questions, Implemented, Facts and Details, Citations, Archived, Children. One file per node, one place to look. Everything else in the tool reads and writes this shape, and the linter enforces it.
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.TodoStateTests -v` passes (2 tests: 3-state checkbox parse/format round-trip).
@@ -20,12 +20,17 @@ The node format itself: frontmatter plus nine sections in a fixed order (Abstrac
 ## Questions
 
 ## Implemented
-- Node parser and serializer with the fixed section order and a byte-identical round-trip on unedited files.
-- Lint covering schema and section-order errors, oversize warnings, missing or stale jump lines, and broken parent, child and wikilink references.
-- Three-state todos; the next-work command prefers an in-progress todo over a higher-priority one not yet started.
-- A dedicated test class now exercises these base lint rules directly: clean pass, section order, short and oversize nodes, stale jump line, broken wikilink and missing parent.
+- Metadata: name, status (planned, in progress or done), parent, a test command and a last-verified date. A node's name must be dashed lowercase and match its file; the parent must match where the file sits in the folder hierarchy, because nesting defines the tree.
+- Round trip: reading and rewriting an untouched node produces byte-identical text, so diffs only show real changes.
+- Todos: a checkbox with three states (not started, in progress, done), a priority from zero to three or unassigned, text, and optional trailing markers in braces. The next-work choice prefers an in-progress todo over a higher-priority one not yet started, so interrupted work finishes first.
+- Questions: open, agent-answered or confirmed, optionally with options and an answer line.
+- Status is derived: in progress if any todo is in progress; done only with no open todos or questions and both a test command and a verification date; otherwise planned. Indexing refreshes it and the section jump line.
+- Lint errors: wrong section order, malformed todo or question lines, duplicate question numbers, impossible status, bad dates, broken parent or wikilink targets, size above the hard limit. Warnings: under 80 or over 600 words, missing tests, stale jump line or status, unassigned priorities, too many open todos or children, excessive depth, prose that reads like code docs.
 
 ## Facts & Details
+- A fixed layout was chosen over free-form notes so tools and viewers can parse without guessing and humans always know where to look.
+- Three todo states mirror question states, avoiding a separate vocabulary.
+- The hard size limit is 900 words; past it a node must be split into children.
 
 ## Citations
 - [skill/scripts/ft.py](../../../skill/scripts/ft.py)

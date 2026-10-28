@@ -10,7 +10,7 @@ last_verified: 2026-10-29
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-When a human comes back after agents worked alone, they should not have to read diffs to learn what happened. The digest answers one question: what changed in the plan since I last looked? It lists the work agents finished, the questions they raised, the decisions they made on their own and the nodes they added, drawn from the plan's own history, in plain language. It is read-only and complements the briefing, which says what is owed now, while the digest says what already happened.
+When a human returns after agents worked alone, they should not have to read diffs. The digest answers one question: what changed in the plan since I last looked? It is read-only and complements the briefing, which says what is owed now, while the digest says what already happened.
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.DigestTests` passes; on a repo with history, `ft digest --since 1.day` lists completed work, new questions, assumed decisions and new nodes, and prints a clear line when nothing changed.
@@ -20,11 +20,17 @@ When a human comes back after agents worked alone, they should not have to read 
 ## Questions
 
 ## Implemented
-A returning human can ask what changed in the plan since a given time and get a short list of finished work, questions raised, decisions agents made alone, and new nodes, read from the plan's own history.
-Every fresh session now opens with the briefing followed by the recent-changes digest, and the skill tells agents to use the digest when resuming after time away.
+- Input: a point in time, given in ordinary phrasing such as one day or a date. Output: up to four lists, each with a count: finished work, questions raised, decisions made by an agent and still unconfirmed, and nodes added.
+- Source: the plan's version history within that period. Lines newly added as checked-off todos count as finished (question closures are not mistaken for todos); newly added open questions count as raised; agent-assumed answers count as decisions; newly created node files count as added.
+- Duplicates are collapsed, order of first appearance kept. A header repeats the chosen period. When nothing matches, it says nothing changed.
+- Failure: if the plan is not under version control, it reports that and fails.
+- Every fresh agent session opens with the briefing followed by the last day's digest, and the skill tells agents to read it when resuming after time away.
 
 ## Facts & Details
-The digest is command-line only on purpose: the viewer reads plain files and has no access to version history, so showing it there would need a new bridge in both hosts for little gain over the briefing.
+- It is available only on the command line; the viewer cannot read history.
+- Reading history rather than keeping a separate log means there is nothing extra to maintain and it cannot disagree with the plan.
+- A day is the default window for session start because that matches typical away time; humans can widen it.
+- Because it works from added lines, work done and reflected within the same period still shows once.
 
 ## Citations
 
