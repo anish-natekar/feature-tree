@@ -32,7 +32,6 @@ A tagged first release waits until the install story is settled.
 manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist at the repo root; `vsce package` produces an installable `.vsix` without error.
 
 ## Todos
-- [ ] (P2) add continuous integration that runs both test suites and the plan lint on every push
 - [ ] (P3) update the sample fixture plans used by tests to the current section layout
 - [ ] (P3) tag a `v0.1.0` release once the extension install story is settled {hitl}
 
@@ -47,6 +46,7 @@ manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist 
 - Public repository with license, readme and ignore list.
 - Corrected extension manifest and debug-host launch configurations, so the extension activates and can be run during development.
 - Permanent local install of the extension by copy.
+Every push and pull request now runs the plan lint, checks that no finished work is left unarchived, and runs both the command-line and viewer test suites, so the plan and the tooling are checked together.
 
 ## Facts & Details
 - Why not publish yet: a marketplace listing needs a registered publisher identity, a decision only the owner can make.
@@ -57,5 +57,6 @@ manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist 
 
 ## Archived
 - [x] (P1) choose a real publisher id and decide whether to publish the extension to the VS Code Marketplace, vs. keeping it a local/dev-only install
+- [x] (P2) add continuous integration that runs both test suites and the plan lint on every push
 
 ## Children

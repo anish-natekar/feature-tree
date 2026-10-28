@@ -30,6 +30,7 @@
     kind: "web",
     rootName: "features",
     canPick: typeof window.showDirectoryPicker === "function",
+    get snapshotAt() { return !dir && window.FT_SNAPSHOT ? window.FT_SNAPSHOT_AT || "an earlier time" : null; },
     async pick() {
       dir = await window.showDirectoryPicker({ mode: "readwrite" });
       await scan(true);

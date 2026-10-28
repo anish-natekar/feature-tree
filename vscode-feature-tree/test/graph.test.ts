@@ -487,3 +487,14 @@ test("paused banner shows when features/.paused exists and clears on resume", ()
   win.__push(readFiles());
   assert.ok(!doc.querySelector("#toolbar .pausedbanner"));
 });
+
+test("snapshot banner shows only while the host reports a snapshot", () => {
+  const { doc, win } = mount();
+  assert.ok(!doc.querySelector("#toolbar .snapbanner"));
+  win.FT_HOST.snapshotAt = "2026-10-29 10:00";
+  win.__push(readFiles());
+  assert.match(doc.querySelector("#toolbar .snapbanner")!.textContent!, /snapshot of 2026-10-29 10:00 · read-only/);
+  win.FT_HOST.snapshotAt = null;
+  win.__push(readFiles());
+  assert.ok(!doc.querySelector("#toolbar .snapbanner"));
+});

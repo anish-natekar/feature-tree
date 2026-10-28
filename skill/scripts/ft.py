@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ft: feature tree helper. Stdlib only. Rules live in features/SCHEMA.md."""
 import argparse
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -1114,7 +1115,8 @@ def cmd_view(a, nodes, root):
     parts = {f: (media / f).read_text() for f in ("graph.css", "tree.js", "graph.js", "host-web.js")}
     snap = [{"path": f.relative_to(root).as_posix(), "text": f.read_text()}
             for f in sorted(root.rglob("*")) if f.is_file() and (f.suffix == ".md" or f.relative_to(root).as_posix() == ".paused")]
-    snap_js = "window.FT_SNAPSHOT=" + json.dumps(snap).replace("</", "<\\/") + ";"
+    snap_js = ("window.FT_SNAPSHOT=" + json.dumps(snap).replace("</", "<\\/") + ";"
+               + "window.FT_SNAPSHOT_AT=" + json.dumps(datetime.now().strftime("%Y-%m-%d %H:%M")) + ";")
     html = ("<!doctype html><html><head><meta charset=\"utf-8\"><title>Feature Tree</title><style>"
             + parts["graph.css"] + "</style></head><body><div id=\"toolbar\"></div>"
             "<div id=\"viewport\"><div id=\"canvas\"><svg id=\"edges\"></svg></div></div>"

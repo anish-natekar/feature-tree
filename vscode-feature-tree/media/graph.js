@@ -1000,6 +1000,7 @@
 
   function renderToolbar() {
     toolbar.replaceChildren();
+    if (host.snapshotAt) toolbar.append(Object.assign(el("span", "snapbanner", "snapshot of " + host.snapshotAt + " · read-only"), { title: "This page shows a copy of the plan taken when it was generated. Click “open features/ folder” to see live changes and edit; run `ft view` to refresh the copy." }));
     if (pausedBy !== null) toolbar.append(Object.assign(el("span", "pausedbanner", "⏸ PAUSED — " + pausedBy + " (ft resume)"), { title: "Agents stop picking work until `ft resume`" }));
     for (const [s, c] of Object.entries(COLORS)) {
       const n = [...nodes.values()].filter((x) => x.status === s).length;

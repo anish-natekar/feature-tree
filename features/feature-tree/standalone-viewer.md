@@ -32,7 +32,6 @@ Data kept: none of its own beyond the embedded snapshot; the plan files in the c
 manual: open `features/viewer.html` in a browser, pick the `features/` folder when prompted, confirm the graph renders with the same colors/drawer behavior as the VS Code graph panel.
 
 ## Todos
-- [ ] (P2) show a visible banner on a generated viewer saying it is a read-only snapshot with its generation time, and how to go live
 - [ ] (P3) do an actual manual pass in a real browser — so far only verified indirectly via the jsdom test suite in `vscode-feature-tree/test/`, never opened for real {hitl}
 
 ## Questions
@@ -43,6 +42,7 @@ manual: open `features/viewer.html` in a browser, pick the `features/` folder wh
 - Periodic rescan that redraws on change.
 - Guarded write-back to existing markdown files only.
 - Regeneration from the shared extension sources.
+A generated viewer now shows a toolbar notice with the time its snapshot was taken and that it is read-only; the notice disappears once a plan folder is picked and the viewer goes live.
 
 ## Facts & Details
 - Why a snapshot rather than an empty state: a shareable viewer should show a populated map at once.
@@ -55,5 +55,6 @@ manual: open `features/viewer.html` in a browser, pick the `features/` folder wh
 ## Archived
 - [x] (P3) regenerate `features/viewer.html` (`ft view`) after the blocked-by/HITL glyphs + progress-rollup badge land in `media/` {blocked-by: vscode-extension}
 - [x] (P1) diagnose the earlier "blank viewer.html" report — still need the browser name and any console error to reproduce; not yet actionable {hitl}
+- [x] (P2) show a visible banner on a generated viewer saying it is a read-only snapshot with its generation time, and how to go live
 
 ## Children

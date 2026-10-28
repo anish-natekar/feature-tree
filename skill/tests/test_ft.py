@@ -416,6 +416,7 @@ class ViewSnapshotTests(unittest.TestCase):
         html = out.read_text()
         self.assertIn("window.FT_SNAPSHOT=", html)
         self.assertIn("alpha/alpha.md", html)
+        self.assertIn("window.FT_SNAPSHOT_AT=", html)
         self.assertEqual(html.count("</script>"), 4)  # embedded text cannot close the snapshot script early
 
 

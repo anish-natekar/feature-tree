@@ -220,3 +220,5 @@ body.node-editor .drawer { position: static; width: 100% !important; max-width: 
 body.node-editor .drawer .grip { display: none; }
 body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" makes no sense when the drawer is the whole tab */
 .todobox [hidden] { display: none !important; }
+
+#toolbar .snapbanner { color: var(--planned, #6c7be0); font-weight: 600; }
