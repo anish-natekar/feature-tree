@@ -114,16 +114,18 @@
   // render loose markdown (bullet lines + plain paragraphs, with [[links]], [text](url) and `code`/**bold** resolved) for read view
   function renderProse(text, parent, nodePath) {
     const lines = text.split("\n");
+    const UL = /^[-*] /, OL = /^\d+[.)] /;
     let i = 0;
     while (i < lines.length) {
       if (lines[i].trim() === "") { i++; continue; }
-      if (/^- /.test(lines[i])) {
-        const ul = el("ul");
-        while (i < lines.length && /^- /.test(lines[i])) { ul.append(linkify(lines[i].slice(2), el("li"), nodePath)); i++; }
-        parent.append(ul);
+      const kind = UL.test(lines[i]) ? UL : OL.test(lines[i]) ? OL : null;
+      if (kind) {
+        const list = el(kind === UL ? "ul" : "ol");
+        while (i < lines.length && kind.test(lines[i])) { list.append(linkify(lines[i].replace(kind, ""), el("li"), nodePath)); i++; }
+        parent.append(list);
       } else {
         const start = i;
-        while (i < lines.length && lines[i].trim() !== "" && !/^- /.test(lines[i])) i++;
+        while (i < lines.length && lines[i].trim() !== "" && !UL.test(lines[i]) && !OL.test(lines[i])) i++;
         parent.append(linkify(lines.slice(start, i).join(" "), el("div", "p"), nodePath));
       }
     }

@@ -32,6 +32,7 @@ Data kept: none of its own beyond the embedded snapshot; the plan files in the c
 manual: open `features/viewer.html` in a browser, pick the `features/` folder when prompted, confirm the graph renders with the same colors/drawer behavior as the VS Code graph panel.
 
 ## Todos
+- [ ] (P2) show a visible banner on a generated viewer saying it is a read-only snapshot with its generation time, and how to go live
 - [ ] (P3) do an actual manual pass in a real browser — so far only verified indirectly via the jsdom test suite in `vscode-feature-tree/test/`, never opened for real {hitl}
 
 ## Questions

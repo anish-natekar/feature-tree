@@ -32,6 +32,8 @@ A tagged first release waits until the install story is settled.
 manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist at the repo root; `vsce package` produces an installable `.vsix` without error.
 
 ## Todos
+- [ ] (P2) add continuous integration that runs both test suites and the plan lint on every push
+- [ ] (P3) update the sample fixture plans used by tests to the current section layout
 - [ ] (P3) tag a `v0.1.0` release once the extension install story is settled {hitl}
 
 ## Questions

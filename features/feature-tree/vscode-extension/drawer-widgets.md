@@ -44,6 +44,7 @@ The first option is the recommendation because that is how agents already phrase
 - Multiple-choice question card with recommended badge and Other row.
 - Floating todo and question box with tabs and filters.
 - Automatic removal of blocked markers when a question is resolved.
+Numbered and bulleted lines inside any prose section now show as proper lists in the drawer, so step-by-step methodology reads as steps instead of one run-on paragraph.
 
 ## Facts & Details
 - Decision: the first option is the recommendation; nothing extra is stored.
@@ -55,5 +56,6 @@ The first option is the recommendation because that is how agents already phrase
 
 ## Archived
 - [x] (P2) drawer: render `{blocked-by}`/`{hitl}` glyphs on todo rows (dimmed row + blocked icon; HITL badge), once `ft-cli`'s marker parsing lands
+- [x] (P1) render numbered and bulleted lists inside prose sections as real lists (they currently run together as one paragraph)
 
 ## Children

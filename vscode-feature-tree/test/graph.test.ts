@@ -93,6 +93,21 @@ test("drawer: Methodology section sits right after Abstract and is editable", ()
   assert.ok(a >= 0 && mth === a + 1, `headings: ${heads.join(" | ")}`);
 });
 
+test("drawer: numbered and bulleted lines in prose render as real lists", () => {
+  const { doc, win, card } = mount();
+  const files = readFiles().map((f) =>
+    f.path === "robot-arm/motion-planning.md"
+      ? { ...f, text: f.text.replace(/## Abstract\n/, "## Abstract\nIntro line\n1. first\n2. second\n\n* a\n* b\n") }
+      : f
+  );
+  win.__push(files);
+  card("motion-planning").querySelector<HTMLElement>(".title")!.click();
+  const view = doc.querySelector<HTMLElement>(".drawer .secview")!;
+  assert.strictEqual(view.querySelectorAll("ol > li").length, 2);
+  assert.strictEqual(view.querySelectorAll("ul > li").length, 2);
+  assert.match(view.querySelector(".p")!.textContent!, /^Intro line/);
+});
+
 test("drawer: status and priority edits", () => {
   const { doc, card, log, win } = mount();
   card("motion-planning").querySelector<HTMLElement>(".title")!.click();
