@@ -32,4 +32,4 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 ## Children
 - [[drawer-widgets]] (done)
 - [[graph-panel]] (done)
-- [[node-editor]] (planned)
+- [[node-editor]] (done)

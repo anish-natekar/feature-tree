@@ -1,6 +1,6 @@
 ---
 name: claude-hooks
-status: planned
+status: done
 parent: feature-tree
 tests: python3 -m unittest skill.tests.test_ft.HookTests
 last_verified: 2026-10-28
@@ -16,7 +16,6 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 `python3 -m unittest skill.tests.test_ft.HookTests -v` passes (3 tests: lint-blocks-on-error, stop-hook-checkpoint, context-hook).
 
 ## Todos
-- [ ] (P3) document the hook install steps (wiring `ft_hook.py` into `settings.json`) in a README, not just inline in `SKILL.md`
 
 ## Questions
 
@@ -24,6 +23,7 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 - Lint hook: runs `ft lint` scoped to the edited file's node on every write under `features/`, exits non-zero (blocks) on schema errors, no-ops for files outside `features/`.
 - Stop hook: calls the shared `unreflected()` helper (confirmed todos and questions not yet archived via `ft reflect`), plus checks for `P?`-unassigned todos and a `status: done` node with open todos; refuses to stop with the specific `ft reflect ... --note "..."` command to run; honors `stop_hook_active` to avoid an infinite block loop.
 - Context hook: prints the current node's highest-priority open todo at session start.
+skill/hooks/README.md documents the three hooks and install steps.
 
 ## Facts & Details
 
@@ -31,5 +31,6 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 - [skill/SKILL.md](../../skill/SKILL.md)
 
 ## Archived
+- [x] (P3) document the hook install steps (wiring `ft_hook.py` into `settings.json`) in a README, not just inline in `SKILL.md`
 
 ## Children

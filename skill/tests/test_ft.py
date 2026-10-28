@@ -494,3 +494,58 @@ class IndexSafetyTests(unittest.TestCase):
         stray.write_text("---\nname: readme\ndescription: not a node\n---\n# readme\n\nhello\n")
         ft(p, "index")
         self.assertEqual(stray.read_text(), "---\nname: readme\ndescription: not a node\n---\n# readme\n\nhello\n")
+
+
+class LintBaseTests(unittest.TestCase):
+    def lint_out(self, p):
+        return ft(p, "lint")
+
+    def edit(self, p, fn):
+        f = p / "features/alpha/alpha.md"
+        f.write_text(fn(f.read_text()))
+
+    def test_clean_tree_passes(self):
+        self.assertEqual(self.lint_out(make(["- [ ] (P1) x"])).returncode, 0)
+
+    def test_section_order_error(self):
+        p = make(["- [ ] (P1) x"])
+        self.edit(p, lambda t: t.replace("## Todos", "## Zed", 1))
+        r = self.lint_out(p)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("sections must be exactly", r.stdout)
+
+    def test_short_node_warns_but_passes(self):
+        p = make(["- [ ] (P1) x"])
+        self.edit(p, lambda t: t.replace(ABSTRACT, "tiny"))
+        r = self.lint_out(p)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("consider merging", r.stdout)
+
+    def test_oversize_node_errors(self):
+        p = make(["- [ ] (P1) x"])
+        self.edit(p, lambda t: t.replace(ABSTRACT, " ".join(["w"] * 950)))
+        self.assertIn("split into children", self.lint_out(p).stdout)
+
+    def test_stale_jump_line_warns(self):
+        p = make(["- [ ] (P1) x"])
+        self.edit(p, lambda t: t.replace("Jump: ", "Jump: [Old](#old) · ", 1))
+        self.assertIn("missing section index", self.lint_out(p).stdout)
+
+    def test_broken_wikilink_errors(self):
+        p = make(["- [ ] (P1) see [[ghost]]"])
+        r = self.lint_out(p)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("broken wikilink [[ghost]]", r.stdout)
+
+    def test_missing_parent_errors(self):
+        p = make(["- [ ] (P1) x"])
+        self.edit(p, lambda t: t.replace("parent:\n", "parent: nobody\n", 1))
+        self.assertIn("parent should be", self.lint_out(p).stdout)
+
+    def test_degenerate_mcq_options_warn(self):
+        p = make(["- [ ] (P1) x"])
+        ft(p, "ask", "alpha", "One option?", "--option", "only")
+        ft(p, "ask", "alpha", "Dup?", "--option", "A", "--option", "a")
+        out = self.lint_out(p).stdout
+        self.assertIn("Q1 has a single option", out)
+        self.assertIn("Q2 has duplicate options", out)

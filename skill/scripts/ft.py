@@ -259,6 +259,11 @@ def lint(nodes, root):
         for l in n.sections.get("Questions", "").splitlines():
             if l.startswith("- [") and not Q_RE.match(l):
                 e(f"bad question line (want '- [ ] Q1: text'): {l.strip()}")
+        for q in qs:
+            if len(q["options"]) == 1:
+                w(f"{q['id']} has a single option; add alternatives or drop the options")
+            if len({o.strip().lower() for o in q["options"]}) != len(q["options"]):
+                w(f"{q['id']} has duplicate options")
         by_id = {q["id"]: q for q in qs}
         for t in n.todos_full:
             if t["blocked"] and t["blocked"] not in by_id:

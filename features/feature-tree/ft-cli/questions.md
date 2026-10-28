@@ -1,6 +1,6 @@
 ---
 name: questions
-status: planned
+status: done
 parent: ft-cli
 tests: python3 -m unittest skill.tests.test_ft.QuestionOptionTests
 last_verified: 2026-10-28
@@ -16,12 +16,12 @@ Multiple-choice questions: `ft ask <node> "text" --option "..." --option "..."` 
 `python3 -m unittest skill.tests.test_ft.QuestionOptionTests -v` passes (3 tests).
 
 ## Todos
-- [ ] (P3) lint check for degenerate MCQ options (duplicate option text, or a question with only one `- O:` line)
 
 ## Questions
 
 ## Implemented
 - Multiple-choice questions: `ft ask <node> "text" --option "..." --option "..."` (repeatable), written as `- O:` sub-lines under the question; first option = recommended, "Other" always implicit — never hand-written to disk.
+lint warns on single-option and duplicate-option questions; covered by LintBaseTests.
 
 ## Facts & Details
 
@@ -29,5 +29,6 @@ Multiple-choice questions: `ft ask <node> "text" --option "..." --option "..."` 
 - [features/SCHEMA.md](../../SCHEMA.md)
 
 ## Archived
+- [x] (P3) lint check for degenerate MCQ options (duplicate option text, or a question with only one `- O:` line)
 
 ## Children
