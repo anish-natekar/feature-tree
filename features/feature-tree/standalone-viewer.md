@@ -16,7 +16,6 @@ A single-file, no-build browser viewer for anyone without VS Code or Obsidian. I
 manual: open `features/viewer.html` in a browser, pick the `features/` folder when prompted, confirm the graph renders with the same colors/drawer behavior as the VS Code graph panel.
 
 ## Todos
-- [x] (P1) diagnose the earlier "blank viewer.html" report — still need the browser name and any console error to reproduce; not yet actionable {hitl}
 - [ ] (P3) do an actual manual pass in a real browser — so far only verified indirectly via the jsdom test suite in `vscode-feature-tree/test/`, never opened for real {hitl}
 
 ## Questions
@@ -25,6 +24,7 @@ manual: open `features/viewer.html` in a browser, pick the `features/` folder wh
 - Web host: a stand-in for the extension's host interface built on the File System Access API, covering the folder picker, reading and writing files, and opening a raw file with the browser's default handler.
 - View command: bundles the shared code and styling plus the web host into one self-contained viewer page, regenerated after the multiple-choice question and todo-row fixes with lint still at zero errors.
 The viewer was regenerated again after the blocked-by and human-only glyphs and the progress-rollup badge landed in the shared code.
+The blank page was real, not a browser quirk: the standalone viewer used to open empty until a features folder was picked. It now carries a snapshot of the plan taken when it was generated, so it opens populated and read-only, and picking the folder switches it to live editing. Regenerate it to refresh the snapshot.
 
 ## Facts & Details
 
@@ -33,5 +33,6 @@ The viewer was regenerated again after the blocked-by and human-only glyphs and 
 
 ## Archived
 - [x] (P3) regenerate `features/viewer.html` (`ft view`) after the blocked-by/HITL glyphs + progress-rollup badge land in `media/` {blocked-by: vscode-extension}
+- [x] (P1) diagnose the earlier "blank viewer.html" report — still need the browser name and any console error to reproduce; not yet actionable {hitl}
 
 ## Children

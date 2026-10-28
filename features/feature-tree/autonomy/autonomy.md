@@ -32,7 +32,7 @@ Proven end to end with a real unattended agent run: it finished the work it coul
 
 ## Children
 - [[autonomy-in-ui]] (done)
-- [[away-digest]] (planned)
+- [[away-digest]] (done)
 - [[human-briefing]] (done)
 - [[kill-switch]] (done)
 - [[unattended-decisions]] (done)
