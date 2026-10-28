@@ -16,6 +16,7 @@ Hierarchical planning method delivered as a Claude skill plus a small `ft` CLI: 
 manual: `python3 skill/scripts/ft.py lint` reports 0 errors across all nodes (including this subtree); `python3 skill/scripts/ft.py tree` shows all 5 children under `feature-tree`.
 
 ## Todos
+- [ ] (P2) rewrite the nodes `ft lint` flags as "reads like code docs" so they state intent, decisions and facts in plain language, with commands kept only in Acceptance Tests
 - [ ] (P3) keep this subtree current as the real todos below are implemented — re-run `ft lint`/`ft index` after any further schema or UI change
 
 ## Questions
@@ -35,7 +36,7 @@ Added `## Design Philosophy` to features/SCHEMA.md: natural-language-only intent
 
 ## Children
 - [[autonomy]] (done)
-- [[claude-hooks]] (planned)
+- [[claude-hooks]] (done)
 - [[distribution]] (planned)
 - [[ft-cli]] (done)
 - [[standalone-viewer]] (planned)

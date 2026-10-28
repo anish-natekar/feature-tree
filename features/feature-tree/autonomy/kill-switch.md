@@ -21,8 +21,7 @@ A human must be able to stop autonomous work instantly and without knowing proce
 
 
 ## Implemented
-`.paused` file gates `ft next` (prints PAUSED) and `ft work` (exit 5); shown atop `ft status`.
-Stop hook returns 0 while paused so a human pause never gets nagged by checkpoint blocking; test_stop_hook_silent_while_paused.
+A human can pause all unattended work with one command and resume it later. While paused, agents are told not to pick up work, the automatic runner refuses to start another step, and the end-of-turn checks stop nagging. The pause is visible in the briefing and in the viewer.
 
 ## Facts & Details
 

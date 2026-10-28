@@ -21,8 +21,7 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 
 
 ## Implemented
-`ft status` implemented in ft.py (cmd_status); ranks open questions by blocked todos, shows recommended option, surfaces HITL/TLE/lint errors.
-SessionStart hook now prints `ft status` then `ft next`.
+A human can get one briefing of any project: how far along it is, what only they can decide, and what agents can do without them. Open questions that hold up work are listed first, with the option the agent would choose. New agent sessions start from that briefing instead of a raw tree dump.
 
 ## Facts & Details
 

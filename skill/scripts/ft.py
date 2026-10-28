@@ -16,6 +16,7 @@ SECTIONS = ["Abstract", "Acceptance Tests", "Todos", "Questions", "Implemented",
 STATUSES = ["planned", "in-progress", "done"]
 WARN_MIN, WARN_MAX, ERR_MAX = 80, 600, 900
 MAX_OPEN_TODOS, MAX_CHILDREN, MAX_DEPTH = 12, 8, 5  # split / regroup guards
+CODE_SPAN_WARN, FILEREF_WARN = 6, 2  # prose should be intent/decisions/facts, not code
 TODO_RE = re.compile(r"^- \[( |~|x)\] \(P([0-3?])\) (.+)$")
 UNASSIGNED = 9  # sort key for (P?)
 MARK_RE = re.compile(r"\s*\{(blocked-by|blocked|limit|tle|hitl)(?::\s*([^}]+))?\}\s*$")
@@ -293,6 +294,11 @@ def lint(nodes, root):
             w(f"{kids} children (>{MAX_CHILDREN}); regroup under intermediate nodes")
         if len(n.rel.split("/")) - 2 > MAX_DEPTH:
             w(f"depth > {MAX_DEPTH}; flatten the tree")
+        prose = "\n".join(n.sections.get(k, "") for k in ("Abstract", "Implemented", "Facts & Details"))
+        spans = len(re.findall(r"`[^`\n]+`", prose))
+        filerefs = len(re.findall(r"\b[\w/.-]+\.(?:py|js|ts|css|json|html)\b", prose))
+        if "```" in n.body or spans > CODE_SPAN_WARN or filerefs > FILEREF_WARN:
+            w("reads like code docs (identifiers/files/code blocks in Abstract/Implemented/Facts); say what and why in plain language, keep commands in Acceptance Tests")
         if toc_line() not in n.body:
             w("missing section index; run `ft index`")
         if m.get("status") in STATUSES and m.get("status") != n.computed_status():

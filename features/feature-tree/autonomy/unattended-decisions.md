@@ -21,8 +21,7 @@ When an agent works without a human and a todo blocks on a question that has a r
 
 
 ## Implemented
-`ft assume` implemented (cmd_assume); writes an unconfirmed A (agent) line, strips the blocked marker, refuses option-less/closed questions.
-SKILL.md Work loop step 3: assume only for reversible, safe defaults; irreversible/costly/security choices stay open.
+An agent working alone can answer a question that has a recommended default instead of stalling. The answer is recorded as an unconfirmed agent decision, work that waited on it resumes, and the human reviews or reverses it later. Rule of thumb: only safe, reversible choices may be assumed; irreversible, costly or security-relevant ones stay open for the human.
 
 ## Facts & Details
 

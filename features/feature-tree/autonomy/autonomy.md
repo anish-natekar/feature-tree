@@ -21,7 +21,7 @@ Goal: make the tree a self-managing control plane. A human glances at one briefi
 
 
 ## Implemented
-AutonomyTests e2e: assume unblocks a gated todo, ft work finishes the rest with the fake claude, ft status then lists only the assumption to confirm; pause stops ft work (exit 5).
+Proven end to end with a real unattended agent run: it finished the work it could, researched a decision it was blocked on, flagged that decision for human confirmation, and left a briefing listing exactly what the human still owes. A pause stops the run cleanly.
 
 ## Facts & Details
 

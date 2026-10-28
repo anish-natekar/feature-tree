@@ -549,3 +549,14 @@ class LintBaseTests(unittest.TestCase):
         out = self.lint_out(p).stdout
         self.assertIn("Q1 has a single option", out)
         self.assertIn("Q2 has duplicate options", out)
+
+
+class AltitudeLintTests(unittest.TestCase):
+    def test_code_heavy_prose_warns_and_plain_prose_does_not(self):
+        p = make(["- [ ] (P1) x"])
+        f = p / "features/alpha/alpha.md"
+        self.assertNotIn("reads like code docs", ft(p, "lint").stdout)
+        f.write_text(f.read_text().replace("## Implemented\n", "## Implemented\n" + " ".join(f"`fn_{i}()`" for i in range(8)) + "\n", 1))
+        r = ft(p, "lint")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("reads like code docs", r.stdout)

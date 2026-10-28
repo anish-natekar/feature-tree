@@ -35,7 +35,8 @@ Plan lives in `features/` as markdown. Format rules: `features/SCHEMA.md`. Helpe
 5. Create or edit nodes: Abstract states what and why; Acceptance Tests give a runnable command or `tests: manual` plus checklist; Todos carry `(P0-P3)`.
 6. Keep nodes 80–600 words: split when big, merge when tiny. Run `ft index` then `ft lint`.
 7. When a planned capability is a genuinely distinct piece of an existing subsystem node (its own test class, its own acceptance criteria, something you'd describe in one breath as "the X part"), scaffold it as a new child (`ft new <parent> <name>`) from the start — don't bundle it into the parent's `## Implemented` list and split later. Splitting after the fact is strictly worse: history is lost, and the tree reads shallower than what's actually built in the meantime. This is proactive, ahead of `ft lint`'s own size/children warn thresholds, not a reaction to them.
-8. Do not touch project code in this mode.
+8. Altitude: write intent, decisions, facts and capabilities in plain language, like normal documentation, not code. Abstract/Implemented/Facts say what the thing is, why it exists, what was decided and why, what is known. No function, flag or file names there; commands belong in Acceptance Tests only. `ft lint` warns when prose reads like code docs. Humans review this map instead of the code, so it must stay true as the project changes.
+9. Do not touch project code in this mode.
 
 ## Work loop (implement mode)
 
@@ -67,7 +68,7 @@ Research mode:
 The Work loop's checkpoint only flips a todo to `[x]`; it doesn't archive or write it up. Reflect does that, batched, triggered by the Stop hook (which runs `ft reflect --check` and blocks if anything's outstanding) or by explicit request:
 
 1. `ft reflect --check` (or `--under NODE`) — lists every confirmed `[x]` todo and question not yet archived.
-2. For each: write a one-line (or short-paragraph) prose note — what got done / what was decided.
+2. For each: write a one-line (or short-paragraph) plain-language note — what capability now exists, or what was decided and why. No code identifiers or file names.
 3. `ft reflect NODE --todo "<exact text>" --note "<prose>"` for a todo, or `ft reflect NODE --question Qn --note "<prose>"` for a question. This moves the raw line/block to `## Archived` and the note into `## Implemented` (todos) or `## Facts & Details` (questions).
 4. `ft index && ft lint`. Repeat `ft reflect --check` until it exits 0.
 5. Only then start a new plan (see Plan mode step 1).

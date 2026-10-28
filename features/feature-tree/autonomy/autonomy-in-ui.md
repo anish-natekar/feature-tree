@@ -10,7 +10,7 @@ last_verified: 2026-10-29
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-The VS Code panel and standalone viewer should surface the same briefing the CLI gives: a Needs-you list (open questions, assumptions to confirm, HITL todos) and a paused banner, so a human can inspect and steer without a terminal. Deliberately later than the CLI: the markdown stays the source of truth, so the viewer only needs to read what the CLI already defines.
+The VS Code panel and standalone viewer should surface the same briefing the CLI gives: a Needs-you list (open questions, assumptions to confirm, HITL todos) and a paused banner, so a human can inspect and steer without a terminal. The markdown stays the source of truth, so the viewer only presents what the command line already defines.
 
 ## Acceptance Tests
 `cd vscode-feature-tree && npm test` passes with new tests for the needs-you view and paused banner.
@@ -21,8 +21,7 @@ The VS Code panel and standalone viewer should surface the same briefing the CLI
 
 
 ## Implemented
-Needs-you tab in the floating box (graph.js refreshQuestionList(true)): open and agent-answered questions, blockers first, plus open HITL todos; count in the tab label; test "needs-you tab".
-Both hosts (extension.ts readFiles, host-web.js walk) now pass features/.paused through; graph.js shows a PAUSED banner in the toolbar; test "paused banner".
+The viewer has a Needs-you view listing open and agent-decided questions (work-blocking ones first) and tasks only a human can do, with a count on its tab. A banner shows when work is paused. Filter controls that do not apply to the current view are hidden.
 
 ## Facts & Details
 
