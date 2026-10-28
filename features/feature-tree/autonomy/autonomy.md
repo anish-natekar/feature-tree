@@ -33,5 +33,5 @@ AutonomyTests e2e: assume unblocks a gated todo, ft work finishes the rest with 
 ## Children
 - [[autonomy-in-ui]] (planned)
 - [[human-briefing]] (done)
-- [[kill-switch]] (planned)
+- [[kill-switch]] (done)
 - [[unattended-decisions]] (done)

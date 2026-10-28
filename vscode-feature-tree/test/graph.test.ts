@@ -454,3 +454,12 @@ test("needs-you tab: blocking question first, HITL todo listed, count in tab lab
   assert.ok(rows[1].classList.contains("hitl"));
   assert.match(rows[1].textContent!, /needs a live human/);
 });
+
+test("paused banner shows when features/.paused exists and clears on resume", () => {
+  const { doc, win } = mount();
+  assert.ok(!doc.querySelector("#toolbar .pausedbanner"));
+  win.__push([...readFiles(), { path: ".paused", text: "lunch" }]);
+  assert.match(doc.querySelector("#toolbar .pausedbanner")!.textContent!, /PAUSED — lunch/);
+  win.__push(readFiles());
+  assert.ok(!doc.querySelector("#toolbar .pausedbanner"));
+});

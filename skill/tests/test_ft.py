@@ -478,3 +478,10 @@ class AutonomyTests(unittest.TestCase):
         self.assertEqual(HookTests.run_hook(self, "stop", p).returncode, 0)
         ft(p, "resume")
         self.assertEqual(HookTests.run_hook(self, "stop", p).returncode, 2)
+
+    def test_work_reflects_checked_items_before_picking_more(self):
+        p = make(["- [x] (P1) already finished", "- [ ] (P2) next one"])
+        r, calls = work(p, "done", "--max", "5")
+        self.assertEqual(calls[0], "Reflect", calls)
+        self.assertEqual(ft(p, "reflect", "--check").returncode, 0)
+        self.assertIn("already finished", (p / "features/alpha/alpha.md").read_text().split("## Archived")[1])

@@ -15,7 +15,7 @@ function readFiles(root: string, rel = ""): { path: string; text: string }[] {
   for (const e of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) out.push(...readFiles(root, r));
-    else if (e.name.endsWith(".md")) out.push({ path: r, text: fs.readFileSync(path.join(root, r), "utf8") });
+    else if (e.name.endsWith(".md") || r === ".paused") out.push({ path: r, text: fs.readFileSync(path.join(root, r), "utf8") });
   }
   return out;
 }

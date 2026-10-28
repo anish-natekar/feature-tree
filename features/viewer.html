@@ -8,6 +8,7 @@
 }
 body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-serif); color: var(--vscode-foreground, #ddd); background: var(--vscode-editor-background, #1e1e1e); }
 #toolbar { position: fixed; top: 8px; left: 8px; flex-wrap: wrap; max-width: calc(100vw - 32px); box-sizing: border-box; z-index: 10; display: flex; gap: 12px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--vscode-editorWidget-background, #252526); border: 1px solid var(--vscode-editorWidget-border, #444); font-size: 12px; }
+#toolbar .pausedbanner { color: var(--progress, #d29922); font-weight: 600; }
 #toolbar .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
 #toolbar button { cursor: pointer; background: transparent; color: inherit; border: 1px solid var(--vscode-editorWidget-border, #555); border-radius: 4px; padding: 2px 8px; }
 #viewport { position: absolute; inset: 0; cursor: grab; }
@@ -397,7 +398,7 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
   async function walk(d, prefix, out) {
     for await (const [name, h] of d.entries()) {
       if (h.kind === "directory") await walk(h, prefix + name + "/", out);
-      else if (name.endsWith(".md")) out.push({ path: prefix + name, text: await (await h.getFile()).text() });
+      else if (name.endsWith(".md") || prefix + name === ".paused") out.push({ path: prefix + name, text: await (await h.getFile()).text() });
     }
   }
 
@@ -1437,6 +1438,7 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
 
   function renderToolbar() {
     toolbar.replaceChildren();
+    if (pausedBy !== null) toolbar.append(Object.assign(el("span", "pausedbanner", "⏸ PAUSED — " + pausedBy + " (ft resume)"), { title: "Agents stop picking work until `ft resume`" }));
     for (const [s, c] of Object.entries(COLORS)) {
       const n = [...nodes.values()].filter((x) => x.status === s).length;
       const item = el("span");
@@ -1481,8 +1483,11 @@ body.node-editor .dhead > .btn:last-child { display: none; } /* "✕ Close" make
     applyView();
   }, { passive: false });
 
+  let pausedBy = null; // text of features/.paused when a human ran `ft pause`, else null
   host.onFiles((files) => {
     nodes = FT.buildTree(files);
+    const pf = files.find((f) => f.path === ".paused");
+    pausedBy = pf ? pf.text.trim() || "paused by human" : null;
     if (singleNode) {
       selected = [...nodes.keys()][0];
       // never rebuild the drawer under the user's cursor (debounced autosave round-trips through here)

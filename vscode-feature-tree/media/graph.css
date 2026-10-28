@@ -8,6 +8,7 @@
 }
 body { margin: 0; overflow: hidden; font-family: var(--vscode-font-family, sans-serif); color: var(--vscode-foreground, #ddd); background: var(--vscode-editor-background, #1e1e1e); }
 #toolbar { position: fixed; top: 8px; left: 8px; flex-wrap: wrap; max-width: calc(100vw - 32px); box-sizing: border-box; z-index: 10; display: flex; gap: 12px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--vscode-editorWidget-background, #252526); border: 1px solid var(--vscode-editorWidget-border, #444); font-size: 12px; }
+#toolbar .pausedbanner { color: var(--progress, #d29922); font-weight: 600; }
 #toolbar .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
 #toolbar button { cursor: pointer; background: transparent; color: inherit; border: 1px solid var(--vscode-editorWidget-border, #555); border-radius: 4px; padding: 2px 8px; }
 #viewport { position: absolute; inset: 0; cursor: grab; }

@@ -34,7 +34,7 @@ Added `## Design Philosophy` to features/SCHEMA.md: natural-language-only intent
 - [x] (P2) write a `## Design Philosophy` section into `features/SCHEMA.md`: natural-language intent/decisions only (no implementation detail), one file per node never fragmented into separate spec/design/tasks files, and the fog-of-war rule (don't create a child node for scope that's still vague). Researched from Wayfinder, GitHub Spec Kit, and AWS Kiro.
 
 ## Children
-- [[autonomy]] (planned)
+- [[autonomy]] (done)
 - [[claude-hooks]] (planned)
 - [[distribution]] (planned)
 - [[ft-cli]] (done)

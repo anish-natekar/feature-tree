@@ -576,6 +576,7 @@ def cmd_ask(a, nodes, root):
 WORK_PROMPTS = {
     "triage": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Triage only: run `ft todos --unassigned`{scope}, assign P0-P3 to every (P?) todo by rewriting the line in place, run `ft lint`, then stop.",
     "work": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Do exactly ONE iteration of the Work loop{scope}: run `ft next`, implement that todo, run the node's acceptance tests, then checkpoint the node (steps 3-5; if the todo is blocked on a decision, `ft ask` and add {{blocked: Qn}} instead). Run `ft lint`. Then stop; do not start another todo.",
+    "reflect": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Reflect only{scope}: run `ft reflect --check`, then for every item write a one-line prose note and archive it with `ft reflect NODE --todo \"<exact text>\" --note \"...\"` (or --question Qn), then `ft index` and `ft lint`. Then stop.",
     "research": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Research mode{scope}: `ft questions --open`; research each on the web and in the repo; record answers as [~] with sources, remove stale {{blocked}} markers, run `ft lint`. Then stop.",
     "split": "Use the feature-tree skill (skill/SKILL.md, rules in features/SCHEMA.md). Split node {node} ({why}): move cohesive todos/content into new child nodes with `ft new`, keep the Abstract of the parent short, update links, run `ft index` and `ft lint`. Do not change project code. Then stop.",
 }
@@ -633,7 +634,7 @@ def cmd_work(a, nodes, root):
         return 1
     scope = f" for node {a.under} and its children (use --under {a.under})" if a.under else ""
     logdir = root / ".work"
-    researched = triage_failed = False
+    researched = triage_failed = reflect_failed = False
     last_todo = None
     split_tried = set()
     tle_run = 0
@@ -657,6 +658,8 @@ def cmd_work(a, nodes, root):
         if big:
             kind = "split"
             split_tried.add(big[0].name)
+        elif unreflected(nodes, a.under) and not reflect_failed:
+            kind = "reflect"
         elif unset and not triage_failed:
             kind = "triage"
         elif pick:
@@ -701,6 +704,8 @@ def cmd_work(a, nodes, root):
         changed = tree_hash(root) != before
         if kind == "triage" and not changed:
             triage_failed = True
+        elif kind == "reflect":
+            reflect_failed = not changed
         elif kind == "research":
             researched = True
         elif kind == "work":

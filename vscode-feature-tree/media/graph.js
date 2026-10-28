@@ -997,6 +997,7 @@
 
   function renderToolbar() {
     toolbar.replaceChildren();
+    if (pausedBy !== null) toolbar.append(Object.assign(el("span", "pausedbanner", "⏸ PAUSED — " + pausedBy + " (ft resume)"), { title: "Agents stop picking work until `ft resume`" }));
     for (const [s, c] of Object.entries(COLORS)) {
       const n = [...nodes.values()].filter((x) => x.status === s).length;
       const item = el("span");
@@ -1041,8 +1042,11 @@
     applyView();
   }, { passive: false });
 
+  let pausedBy = null; // text of features/.paused when a human ran `ft pause`, else null
   host.onFiles((files) => {
     nodes = FT.buildTree(files);
+    const pf = files.find((f) => f.path === ".paused");
+    pausedBy = pf ? pf.text.trim() || "paused by human" : null;
     if (singleNode) {
       selected = [...nodes.keys()][0];
       // never rebuild the drawer under the user's cursor (debounced autosave round-trips through here)

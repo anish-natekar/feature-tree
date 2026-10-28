@@ -5,7 +5,7 @@
   async function walk(d, prefix, out) {
     for await (const [name, h] of d.entries()) {
       if (h.kind === "directory") await walk(h, prefix + name + "/", out);
-      else if (name.endsWith(".md")) out.push({ path: prefix + name, text: await (await h.getFile()).text() });
+      else if (name.endsWith(".md") || prefix + name === ".paused") out.push({ path: prefix + name, text: await (await h.getFile()).text() });
     }
   }
 

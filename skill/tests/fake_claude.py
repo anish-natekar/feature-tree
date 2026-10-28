@@ -8,11 +8,15 @@ from pathlib import Path
 prompt = sys.argv[sys.argv.index("-p") + 1]
 mode = os.environ.get("FT_FAKE", "done")
 with open(os.environ["FT_FAKE_LOG"], "a") as f:
-    kind = next((k for k in ("Triage", "Split", "Research", "Work loop") if k in prompt), "?")
+    kind = next((k for k in ("Triage", "Split", "Research", "Reflect", "Work loop") if k in prompt), "?")
     f.write(kind + "\n")
 root = Path("features").resolve()
 nodes = ft.load(root)
-if "Triage" in prompt:
+if "Reflect only" in prompt:
+    import subprocess
+    for n, k, ident in ft.unreflected(nodes):
+        subprocess.run([sys.executable, str(Path(ft.__file__)), "--root", str(root), "reflect", n.name, f"--{k}", ident, "--note", "done"], check=True)
+elif "Triage" in prompt:
     for n in nodes:
         p = n.path.read_text().replace("(P?)", "(P1)")
         n.path.write_text(p)

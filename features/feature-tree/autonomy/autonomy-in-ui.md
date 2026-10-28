@@ -1,6 +1,6 @@
 ---
 name: autonomy-in-ui
-status: planned
+status: done
 parent: autonomy
 tests: cd vscode-feature-tree && npm test
 last_verified: 2026-10-29
@@ -16,13 +16,13 @@ The VS Code panel and standalone viewer should surface the same briefing the CLI
 `cd vscode-feature-tree && npm test` passes with new tests for the needs-you view and paused banner.
 
 ## Todos
-- [ ] (P3) show a paused banner when `.paused` exists (needs the host to expose it)
 
 ## Questions
 
 
 ## Implemented
 Needs-you tab in the floating box (graph.js refreshQuestionList(true)): open and agent-answered questions, blockers first, plus open HITL todos; count in the tab label; test "needs-you tab".
+Both hosts (extension.ts readFiles, host-web.js walk) now pass features/.paused through; graph.js shows a PAUSED banner in the toolbar; test "paused banner".
 
 ## Facts & Details
 
@@ -30,5 +30,6 @@ Needs-you tab in the floating box (graph.js refreshQuestionList(true)): open and
 
 ## Archived
 - [x] (P2) add a Needs-you tab to the floating box built from open/agent-answered questions and HITL todos
+- [x] (P3) show a paused banner when `.paused` exists (needs the host to expose it)
 
 ## Children
