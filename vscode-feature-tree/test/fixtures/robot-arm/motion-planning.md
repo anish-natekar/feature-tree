@@ -7,10 +7,12 @@ last_verified:
 ---
 # motion-planning
 
-Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Citations](#citations) · [Children](#children)
+Jump: [Abstract](#abstract) · [Methodology](#methodology) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
 Computes collision-free joint trajectories from the current pose to a target pose. The arm needs this so it never hits the table or itself while moving between pick and place points. It consumes target poses from the robot-arm feature and outputs timed joint commands for the motor driver. Grasp poses must respect the opening limits of the [[gripper]], see the [MoveIt docs](https://moveit.ros.org/) for planner background.
+
+## Methodology
 
 ## Acceptance Tests
 Manual checklist: arm moves from home to marker A and back without touching the table; planner rejects an unreachable pose with a clear error.
@@ -24,7 +26,11 @@ Manual checklist: arm moves from home to marker A and back without touching the 
 
 ## Implemented
 
+## Facts & Details
+
 ## Citations
 - [MoveIt docs](https://moveit.ros.org/)
+
+## Archived
 
 ## Children
