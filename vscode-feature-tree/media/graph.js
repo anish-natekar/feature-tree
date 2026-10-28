@@ -299,42 +299,34 @@
     return field("Acceptance Tests", wrap);
   }
 
-  // Frontmatter, collapsed by default: status, where the run command lives, raw-file link.
-  function metaSection(n) {
-    const d = el("details", "afield meta");
-    const summary = el("summary");
-    summary.append(el("label", "", "Metadata"));
-    d.append(summary);
-    const body = el("div", "metabody");
+  // Frontmatter, as a quiet always-visible byline under the title — not a boxed, collapsed section.
+  function metaByline(n) {
+    const row = el("div", "byline");
+    row.append(el("span", "", "status:"));
 
-    const srow = el("div", "mrow");
-    srow.append(el("span", "mlabel", "status"));
-    const status = el("select", "status");
+    const status = el("select", "bstatus");
     for (const s of FT.STATUSES) status.append(Object.assign(el("option", "", s), { value: s }));
     status.value = n.status;
     status.dataset.status = n.status;
     status.onchange = () => commit(n, (t) => FT.setMeta(t, "status", status.value));
-    srow.append(status);
-    body.append(srow);
+    row.append(status);
 
-    body.append(el("div", "mrow muted", rel(n) + (n.lastVerified ? "  ·  verified " + n.lastVerified : "")));
-
-    const trow = el("div", "mrow");
-    trow.append(el("span", "mlabel", "run"));
-    const tests = el("input"); tests.value = n.tests || ""; tests.placeholder = "command, test path, or manual";
+    row.append(el("span", "bsep", "·"), el("span", "", "tests:"));
+    const tests = el("input", "testsinp"); tests.value = n.tests || ""; tests.placeholder = "command, test path, or manual";
     const saveTests = () => commit(n, (t) => FT.setMeta(t, "tests", tests.value.trim() || null));
     tests.addEventListener("input", () => debounced(n.name + "tests", saveTests));
     tests.addEventListener("blur", saveTests);
-    trow.append(tests);
-    body.append(trow);
+    row.append(tests);
+
+    row.append(el("span", "bsep", "·"), el("span", "muted", rel(n) + (n.lastVerified ? "  ·  verified " + n.lastVerified : "")));
 
     if (host.openRaw) {
-      const raw = el("span", "link", "open raw markdown");
+      row.append(el("span", "bsep", "·"));
+      const raw = el("span", "link", "raw");
       raw.onclick = () => host.openRaw(n.path);
-      body.append(raw);
+      row.append(raw);
     }
-    d.append(body);
-    return d;
+    return row;
   }
 
   function archivedSection(n) {
@@ -633,7 +625,7 @@
     };
     head.append(wide, x);
     drawer.append(head);
-    drawer.append(metaSection(n));
+    drawer.append(metaByline(n));
     const jump = el("div", "jump");
     for (const s of FT.SECTIONS.filter((s) => s !== "Children")) {
       const a = el("span", "chip", s);
@@ -664,7 +656,9 @@
   const tabQs = el("span", "tab", "Questions");
   tabTodos.onclick = () => { tf.tab = "todos"; refreshTodoBox(); };
   tabQs.onclick = () => { tf.tab = "questions"; refreshTodoBox(); };
-  thead.append(tabTodos, tabQs, tcount, tclose);
+  const tabNeeds = el("span", "tab", "Needs you");
+  tabNeeds.onclick = () => { tf.tab = "needs"; refreshTodoBox(); };
+  thead.append(tabTodos, tabQs, tabNeeds, tcount, tclose);
   const tfilters = el("div", "tfilters");
   const chips = el("div", "chips");
   for (const v of ["0", "1", "2", "3", "?"]) {
@@ -734,12 +728,16 @@
   function refreshTodoBox() {
     tabTodos.classList.toggle("on", tf.tab === "todos");
     tabQs.classList.toggle("on", tf.tab === "questions");
+    tabNeeds.classList.toggle("on", tf.tab === "needs");
     chips.hidden = tf.tab !== "todos";
     doneLbl.hidden = tf.tab !== "todos";
     qchips.hidden = tf.tab !== "questions";
+    const needsN = [...nodes.values()].reduce((a, n) => a + n.questions.filter((q) => q.state !== "x").length + n.todos.filter((t) => t.hitl && todoState(t) !== "x").length, 0);
+    tabNeeds.textContent = "Needs you" + (needsN ? " (" + needsN + ")" : "");
     const openQs = [...nodes.values()].reduce((a, n) => a + n.questions.filter((q) => q.state === " ").length, 0);
     tabQs.textContent = "Questions" + (openQs ? " (" + openQs + ")" : "");
     if (tf.tab === "questions") refreshQuestionList();
+    else if (tf.tab === "needs") refreshQuestionList(true);
     else refreshTodoList();
   }
 
@@ -754,23 +752,27 @@
     under.value = tf.under;
   }
 
-  function refreshQuestionList() {
+  // needs=true: the human's inbox — open + agent-answered questions (blockers first) plus open human-only (HITL) todos
+  function refreshQuestionList(needs) {
     syncUnder();
     const scope = tf.under && nodes.has(tf.under) ? descendants(tf.under) : null;
     const rows = [];
     for (const n of nodes.values()) {
       if (scope && !scope.has(n.name)) continue;
       n.questions.forEach((q, i) => {
-        if (!tf.qstates.has(q.state)) return;
+        if (needs ? q.state === "x" : !tf.qstates.has(q.state)) return;
         if (tf.q && !(q.text + " " + n.name + " " + (q.answer || "")).toLowerCase().includes(tf.q)) return;
         rows.push({ n, q, i });
       });
     }
     const ord = { " ": 0, "~": 1, x: 2 };
-    rows.sort((a, b) => ord[a.q.state] - ord[b.q.state] || a.n.name.localeCompare(b.n.name) || a.i - b.i);
-    tcount.textContent = rows.length + " shown";
+    const nblock = (r) => r.n.todos.filter((t) => todoState(t) !== "x" && t.blocked === r.q.id).length;
+    rows.sort((a, b) => (needs ? nblock(b) - nblock(a) : 0) || ord[a.q.state] - ord[b.q.state] || a.n.name.localeCompare(b.n.name) || a.i - b.i);
+    const hitl = [];
+    if (needs) for (const n of nodes.values()) { if (!scope || scope.has(n.name)) for (const t of n.todos) if (t.hitl && todoState(t) !== "x") hitl.push({ n, t }); }
+    tcount.textContent = rows.length + hitl.length + " shown";
     tlist.replaceChildren();
-    if (!rows.length) tlist.append(el("div", "empty", "no questions match"));
+    if (!rows.length && !hitl.length) tlist.append(el("div", "empty", needs ? "nothing needs you" : "no questions match"));
     for (const { n, q } of rows) {
       const blocks = n.todos.filter((t) => todoState(t) !== "x" && t.blocked === q.id).length;
       const r = el("div", "qrow " + (q.state === " " ? "open" : q.state === "~" ? "pend" : "done"));
@@ -802,6 +804,18 @@
         };
         r.append(b);
       }
+      tlist.append(r);
+    }
+    for (const { n, t } of hitl) {
+      const r = el("div", "qrow open hitl");
+      const line = el("div", "qline");
+      line.append(el("span", "qid", "👤"));
+      const text = linkify(t.text, el("span", "ttext"), n.path);
+      text.onclick = (e) => { if (!e.target.closest(".ref,.ext")) { focusNode(n.name); select(n.name); } };
+      const where = el("span", "twhere", n.name);
+      where.onclick = () => { focusNode(n.name); select(n.name); };
+      line.append(text, where);
+      r.append(line, el("div", "qmeta", "needs a live human — agents skip this in unattended runs"));
       tlist.append(r);
     }
   }

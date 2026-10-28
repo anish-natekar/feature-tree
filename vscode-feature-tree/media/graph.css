@@ -57,13 +57,19 @@ select.statussel:hover { filter: brightness(1.15); }
 .sdot[data-status="in-progress"] { background: var(--progress); }
 .sdot[data-status="planned"] { background: var(--planned); }
 .sdot[data-status="unknown"] { background: var(--unknown); }
-.mrow { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-.mlabel { flex: none; width: 46px; opacity: .6; font-size: 11px; }
 .muted { opacity: .6; font-size: 11px; word-break: break-all; }
-.metabody { margin-top: 6px; }
-/* read view by default: rendered prose, click to edit. a dashed outline hints it's editable without looking like a plain textbox */
-.secview { padding: 5px 7px; border: 1px dashed transparent; border-radius: 4px; cursor: text; line-height: 1.45; }
-.secview:hover { border-color: var(--vscode-input-border, #555); background: rgba(127,127,127,.08); }
+/* quiet byline under the title: status/tests/verified/raw-link as flowing text, not a boxed metadata panel */
+.byline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 4px 0 10px; font-size: 11px; opacity: .8; }
+.byline .bsep { opacity: .5; }
+.byline select.bstatus { border: none; background: transparent; appearance: none; -webkit-appearance: none; font: inherit; font-weight: 600; padding: 0; width: auto; cursor: pointer; }
+.byline select.bstatus[data-status="done"] { color: var(--done); }
+.byline select.bstatus[data-status="in-progress"] { color: var(--progress); }
+.byline select.bstatus[data-status="planned"] { color: var(--planned); }
+.drawer .byline input.testsinp { border: none; background: transparent; padding: 0; width: auto; flex: 1 1 auto; min-width: 60px; font: inherit; opacity: .9; }
+.drawer .byline input.testsinp:focus { outline: none; border-bottom: 1px solid var(--vscode-input-border, #555); }
+/* read view by default: rendered prose, click to edit. a quiet hover tint hints it's editable, not a bordered box */
+.secview { padding: 5px 2px; border: none; border-radius: 4px; cursor: text; line-height: 1.5; }
+.secview:hover { background: rgba(127,127,127,.06); }
 .secview .empty { opacity: .5; font-style: italic; }
 .secview ul { margin: 2px 0 2px 18px; padding: 0; }
 .secview .p { margin: 0 0 6px; }
@@ -72,10 +78,11 @@ select.statussel:hover { filter: brightness(1.15); }
 .secview code, .atdesc code, .abs code, .ttext code, .qmeta code { background: rgba(127,127,127,.18); border-radius: 3px; padding: 0 4px; font-family: var(--vscode-editor-font-family, monospace); font-size: .95em; }
 .secview strong { font-weight: 600; }
 .secview em { font-style: italic; }
-.testpill { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 10px; background: var(--link); color: #111; font-size: 11px; cursor: pointer; }
+.testpill { display: inline-block; margin-right: 8px; color: var(--link); font-weight: 600; font-size: 11px; cursor: pointer; }
+.testpill:hover { text-decoration: underline; }
 .atdesc { opacity: .85; }
-.drawer button { cursor: pointer; background: transparent; color: inherit; border: 1px solid var(--link); border-radius: 4px; padding: 3px 8px; font-size: 11px; }
-.drawer button:hover { background: var(--link); color: #111; }
+.drawer button { cursor: pointer; background: transparent; color: var(--link); border: none; padding: 3px 4px; font-size: 11px; font-weight: 600; }
+.drawer button:hover { text-decoration: underline; }
 .drawer .field { margin-top: 10px; }
 .drawer .field > label { display: block; font-size: 11px; opacity: .7; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
 .drawer .afield { margin-top: 10px; }
@@ -86,15 +93,13 @@ select.statussel:hover { filter: brightness(1.15); }
 .drawer .afield > summary > label { display: inline; }
 .drawer .afield textarea { margin-top: 5px; }
 .drawer textarea, .drawer input:not([type=checkbox]), .drawer select { width: 100%; box-sizing: border-box; font: inherit; color: var(--vscode-input-foreground, inherit); background: var(--vscode-input-background, #1e1e1e); border: 1px solid var(--vscode-input-border, #555); border-radius: 4px; padding: 4px 6px; }
+.drawer input[type=radio] { width: auto; flex: none; border: none; background: none; padding: 0; border-radius: 0; }
 .drawer textarea { resize: vertical; }
-.drawer select.status { width: auto; }
-.drawer select.status[data-status="done"] { border-color: var(--done); }
-.drawer select.status[data-status="in-progress"] { border-color: var(--progress); }
-.drawer select.status[data-status="planned"] { border-color: var(--planned); }
 .todo { margin-bottom: 4px; }
 .todo.done .txt { text-decoration: line-through; opacity: .6; }
 .todo.progress .txt { opacity: .85; }
-.todo .txt { flex: 1 1 100px; min-width: 70px; }
+.drawer .todo .txt { flex: 1 1 100px; min-width: 70px; border: none; background: transparent; padding: 2px 0; border-radius: 0; }
+.drawer .todo .txt:focus { outline: none; border-bottom: 1px solid var(--vscode-input-border, #555); }
 /* a todo row is a <details>: summary (or the plain add-row) is the only thing visible by default —
    priority/limit/blocked-on live in .tdetail, revealed by expanding, so the list reads as titles, not a form */
 .todo > summary, .todo.add { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
@@ -108,13 +113,13 @@ select.tstate { flex: none; width: 26px; height: 20px; padding: 0 1px; border: n
 select.tstate[data-tstate=" "] { color: var(--planned); }
 select.tstate[data-tstate="~"] { color: var(--progress); }
 select.tstate[data-tstate="x"] { color: var(--done); }
-.todo select.pr { padding: 3px 2px; flex: none; width: 50px; }
+.todo select.pr { padding: 2px 2px; flex: none; width: 50px; border: none; border-bottom: 1px solid currentColor; border-radius: 0; background: transparent; }
 /* same priority palette as the floating todo list's .pN badges, so color means the same thing everywhere */
-.todo select.pr[data-pri="0"] { border-color: #d65a5a; color: #d65a5a; }
-.todo select.pr[data-pri="1"] { border-color: #e07a3f; color: #e07a3f; }
-.todo select.pr[data-pri="2"] { border-color: #5a7fd6; color: #5a7fd6; }
-.todo select.pr[data-pri="3"] { border-color: #888; color: #888; }
-.todo select.pr[data-pri="?"] { border-color: #e0a020; color: #e0a020; border-style: dashed; }
+.todo select.pr[data-pri="0"] { color: #d65a5a; }
+.todo select.pr[data-pri="1"] { color: #e07a3f; }
+.todo select.pr[data-pri="2"] { color: #5a7fd6; }
+.todo select.pr[data-pri="3"] { color: #888; }
+.todo select.pr[data-pri="?"] { color: #e0a020; border-bottom-style: dashed; }
 .todo .cbspace { flex: none; width: 26px; }
 .todo .btn.del { flex: none; }
 .todo.add { margin-top: 6px; }
@@ -146,16 +151,23 @@ select.tstate[data-tstate="x"] { color: var(--done); }
 .empty { opacity: .6; padding: 8px; }
 .p0 { --cc: #d65a5a; } .p1 { --cc: #e07a3f; } .p2 { --cc: #5a7fd6; } .p3 { --cc: #888; } .p\? { --cc: #e0a020; }
 .pbadge.p\? { background: transparent; border: 1px dashed var(--cc); color: var(--cc); }
+/* the drawer's own todo list reads as a page, not a wall of priority pills — the floating cross-tree list above keeps its pills */
+.drawer .pbadge { background: none; border: none; color: var(--cc, inherit); font-weight: 700; padding: 0; border-radius: 0; }
+.drawer .pbadge.p\? { border: none; }
 
 .emptymsg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 420px; text-align: center; line-height: 1.5; opacity: .75; font-size: 14px; }
 .emptymsg[hidden] { display: none; }
 #toolbar button.primary { background: var(--link); color: #111; border-color: var(--link); }
 
-.todo select.blk { padding: 3px 4px; flex: none; max-width: 110px; border-color: var(--progress); color: var(--progress); }
+.todo select.blk { padding: 2px 0; flex: none; max-width: 140px; border: none; border-bottom: 1px solid var(--progress); border-radius: 0; background: transparent; color: var(--progress); }
 .qbadge { padding: 1px 6px; border-radius: 10px; border: 1px solid var(--link); color: var(--link); font-size: 10px; white-space: nowrap; }
-.q { border: 1px solid var(--vscode-editorWidget-border, #444); border-left: 4px solid var(--progress); border-radius: 6px; padding: 6px; margin-bottom: 8px; }
-.q.pend { border-left-color: var(--link); }
-.q.done { border-left-color: var(--done); }
+/* question cards read as a doc page: a hairline divider between questions, not a bordered card per question */
+.q { border: none; border-top: 1px solid var(--vscode-editorWidget-border, #444); padding: 8px 0 2px; margin-bottom: 0; }
+.q:first-child { border-top: none; padding-top: 0; }
+.q.pend { border-top-color: var(--link); }
+.q.done { border-top-color: var(--done); }
+.q textarea, .q input:not([type=radio]) { border: none; background: transparent; padding: 2px 0; border-radius: 0; }
+.q textarea:focus, .q input:not([type=radio]):focus { outline: none; border-bottom: 1px solid var(--vscode-input-border, #555); }
 .qhead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .qid { font-weight: 700; color: var(--progress); }
 .q.pend .qid { color: var(--link); } .q.done .qid { color: var(--done); }
@@ -184,11 +196,15 @@ select.tstate[data-tstate="x"] { color: var(--done); }
 .qrow input { width: 100%; box-sizing: border-box; margin-top: 4px; font: inherit; color: var(--vscode-input-foreground, inherit); background: var(--vscode-input-background, #1e1e1e); border: 1px solid var(--vscode-input-border, #555); border-radius: 4px; padding: 2px 6px; }
 .qrow button { margin-top: 4px; cursor: pointer; background: transparent; color: inherit; border: 1px solid var(--link); border-radius: 4px; padding: 2px 8px; font-size: 11px; }
 .chip.qo { --cc: #e0a020; } .chip.qp { --cc: #3fb8b0; } .chip.qd { --cc: #2e9e5b; }
-.jump { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
-.jump .chip { cursor: pointer; font-size: 11px; padding: 1px 8px; border-radius: 10px; background: var(--vscode-badge-background, #444); color: var(--vscode-badge-foreground, #fff); }
-.limwrap { display: inline-flex; align-items: center; flex: none; border: 1px solid var(--vscode-input-border, #555); border-radius: 4px; background: var(--vscode-input-background, #1e1e1e); overflow: hidden; }
-.limwrap .ico { padding: 0 3px; opacity: .6; font-size: 10px; }
-.drawer .todo .lim { width: 42px; font-size: 11px; border: none; border-radius: 0; padding: 4px 4px 4px 0; background: transparent; }
+/* a quiet in-page outline, not a repeat of the headings right below it — plain text, no pills */
+.jump { margin: 2px 0 12px; font-size: 11px; }
+.jump .chip { cursor: pointer; padding: 0; border-radius: 0; background: none; color: inherit; opacity: .65; }
+.jump .chip:hover { opacity: 1; text-decoration: underline; }
+.jump .chip:not(:last-child)::after { content: " · "; opacity: .6; }
+.limwrap { display: inline-flex; align-items: center; flex: none; border: none; background: transparent; }
+.limwrap .ico { padding: 0 2px; opacity: .6; font-size: 10px; }
+.drawer .todo .lim { width: 42px; font-size: 11px; border: none; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; background: transparent; }
+.drawer .todo .lim:focus { outline: none; border-bottom-color: var(--vscode-input-border, #555); }
 .todo .btn.tle { flex: 0 0 100%; margin-top: 2px; }
 .btn.tle { color: var(--progress); white-space: nowrap; }
 .drawer .grip { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: ew-resize; z-index: 2; }

@@ -87,7 +87,7 @@ test("drawer: add todo with [[ autocomplete, unassigned priority, minimal diff",
 test("drawer: status and priority edits", () => {
   const { doc, card, log, win } = mount();
   card("motion-planning").querySelector<HTMLElement>(".title")!.click();
-  const st = doc.querySelector<HTMLSelectElement>(".drawer select.status")!;
+  const st = doc.querySelector<HTMLSelectElement>(".drawer select.bstatus")!;
   st.value = "in-progress";
   st.dispatchEvent(new win.Event("change"));
   assert.match(log.writes.at(-1)!.text, /^status: in-progress$/m);
@@ -321,7 +321,7 @@ test("node-editor mode: an external doc change (e.g. edited elsewhere) re-render
   const { doc, push, text } = mountNode("robot-arm/gripper.md");
   assert.strictEqual(doc.querySelector(".drawer .dtitle")!.textContent, "gripper");
   push(text.replace("status: done", "status: planned"));
-  assert.strictEqual(doc.querySelector<HTMLSelectElement>(".drawer select.status")!.value, "planned");
+  assert.strictEqual(doc.querySelector<HTMLSelectElement>(".drawer select.bstatus")!.value, "planned");
 });
 
 // ---------- multiple-choice questions (AskUserQuestion-style: first = recommended, "Other" implicit) ----------
@@ -437,4 +437,20 @@ test("abstract read view renders `code` spans instead of showing raw backticks",
   const code = abs.querySelector(".secview code")!;
   assert.strictEqual(code.textContent, "motor_driver.py");
   assert.ok(!abs.querySelector(".secview")!.textContent!.includes("`"), "no literal backticks left in the rendered view");
+});
+
+test("needs-you tab: blocking question first, HITL todo listed, count in tab label", () => {
+  const { doc, win } = mount();
+  const mp = readFiles().find((f) => f.path.endsWith("motion-planning.md"))!;
+  win.__push(readFiles().map((f) => (f.path === mp.path ? { ...f, text: f.text.replace("limits config", "limits config {hitl}") } : f)));
+  const box = doc.querySelector<HTMLElement>(".todobox")!;
+  [...doc.querySelectorAll<HTMLElement>("#toolbar button")].find((b) => b.textContent!.includes("Todos"))!.click();
+  const tab = [...box.querySelectorAll<HTMLElement>(".tab")].find((t) => t.textContent!.startsWith("Needs you"))!;
+  assert.match(tab.textContent!, /Needs you \(2\)/);
+  tab.click();
+  const rows = [...box.querySelectorAll(".qrow")];
+  assert.strictEqual(rows.length, 2);
+  assert.match(rows[0].textContent!, /Q1.*blocks 1 todo/);
+  assert.ok(rows[1].classList.contains("hitl"));
+  assert.match(rows[1].textContent!, /needs a live human/);
 });
