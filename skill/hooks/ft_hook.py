@@ -37,8 +37,8 @@ def hook_lint(data):
 def hook_stop(data):
     """Stop: refuse to end the turn while a checkpoint is half done. Only blocks once per stop (stop_hook_active)."""
     root = features_root(data)
-    if not root or data.get("stop_hook_active"):
-        return 0
+    if not root or data.get("stop_hook_active") or ft.pause_reason(root):
+        return 0  # paused by a human: let the agent stop cleanly, no checkpoint nagging
     nodes = ft.load(root)
     problems = []
     for n, kind, ident in ft.unreflected(nodes):
@@ -61,7 +61,7 @@ def hook_context(data):
     if not root:
         return 0
     py = sys.executable
-    for args in (["tree"], ["next"]):
+    for args in (["status"], ["next"]):
         out = subprocess.run([py, str(HERE.parent / "scripts" / "ft.py"), "--root", str(root), *args], capture_output=True, text=True).stdout
         print(f"$ ft {' '.join(args)}\n{out}")
     return 0

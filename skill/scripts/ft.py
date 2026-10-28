@@ -527,6 +527,10 @@ def pick_next(nodes, under=None, afk_only=False):
 
 
 def cmd_next(a, nodes, root):
+    paused = pause_reason(root)
+    if paused:
+        print(f"PAUSED: {paused} (human ran `ft pause`; do not start work, run `ft resume` to continue)")
+        return 0
     pick, unset = pick_next(nodes, a.under, a.afk_only)
     if unset:
         print(f"note: {unset} unblocked todo(s) have P? priority; triage them first", file=sys.stderr)
@@ -634,6 +638,10 @@ def cmd_work(a, nodes, root):
     split_tried = set()
     tle_run = 0
     for i in range(1, a.max + 1):
+        paused = pause_reason(root)
+        if paused:
+            print(f"stopping: paused ({paused})")
+            return 5
         nodes = load(root)
         errs = [p for p in lint(nodes, root) if p[0] == "ERROR"]
         if errs:
@@ -707,6 +715,122 @@ def cmd_work(a, nodes, root):
     print("done." if not pick else f"left: next is P{pick[0]} {pick[2]}")
     print("open questions for you:")
     cmd_questions(argparse.Namespace(under=a.under, open=True, all=False), nodes, root)
+    return 0
+
+
+PAUSE_FILE = ".paused"
+
+
+def pause_reason(root):
+    """Human kill switch: features/.paused exists -> unattended work must stop. Returns reason text or None."""
+    p = root / PAUSE_FILE
+    return (p.read_text().strip() or "paused by human") if p.exists() else None
+
+
+def cmd_pause(a, nodes, root):
+    (root / PAUSE_FILE).write_text(" ".join(a.reason) if a.reason else "paused by human")
+    print(f"paused: `ft work` and `ft next` stop handing out work until `ft resume`")
+    return 0
+
+
+def cmd_resume(a, nodes, root):
+    p = root / PAUSE_FILE
+    if p.exists():
+        p.unlink()
+    print("resumed")
+    return 0
+
+
+def cmd_status(a, nodes, root):
+    """One-screen briefing for a human: where things stand, what needs them, what the agent can do alone."""
+    scope = under_filter(nodes, a.under)
+    sel = [n for n in nodes if n.name in scope]
+    by_name = {n.name: n for n in nodes}
+    paused = pause_reason(root)
+    if paused:
+        print(f"PAUSED: {paused}  (ft resume to continue)\n")
+    archived = sum(1 for n in sel for l in n.sections.get("Archived", "").splitlines() if (m := TODO_RE.match(l.strip())) and m.group(1) == "x")
+    total = sum(len(n.todos_full) for n in sel) + archived  # reflected todos left Todos but still count as done work
+    done = sum(1 for n in sel for t in n.todos_full if t["done"]) + archived
+    counts = {s: sum(1 for n in sel if n.meta.get("status") == s) for s in STATUSES}
+    pct = f" ({round(done / total * 100)}%)" if total else ""
+    print(f"PROGRESS  {done}/{total} todos done{pct}; nodes: {counts['done']} done, {counts['in-progress']} in-progress, {counts['planned']} planned")
+    needs = []
+    for n in sel:
+        stuck_on = {}
+        for t in n.todos_full:
+            if t["blocked"] and not t["done"]:
+                stuck_on.setdefault(t["blocked"], []).append(t["text"])
+        for q in n.questions:
+            if q["state"] == " ":
+                blocks = len(stuck_on.get(q["id"], []))
+                rec = f"  [agent would pick: {q['options'][0]}]" if q["options"] else ""
+                needs.append((0 if blocks else 1, f"answer {n.rel} {q['id']}: {q['text']}" + (f"  (blocks {blocks} todo)" if blocks else "") + rec))
+            elif q["state"] == "~":
+                needs.append((2, f"confirm {n.rel} {q['id']}: {q['text']}  [agent: {q['answer']}]"))
+        for t in n.todos_full:
+            if t["done"]:
+                continue
+            if t["hitl"]:
+                needs.append((1, f"do (needs a human) {n.rel}: {t['text']}"))
+            if t["tle"]:
+                needs.append((3, f"split TLE todo {n.rel}: {t['text']} ({t['tle']})"))
+    errs = [p for p in lint(nodes, root) if p[0] == "ERROR"]
+    for _, n, m in errs:
+        needs.append((0, f"fix lint error {n.rel}: {m}"))
+    print(f"\nNEEDS YOU  ({len(needs)})")
+    for _, line in sorted(needs, key=lambda x: x[0]):
+        print(f"  - {line}")
+    if not needs:
+        print("  nothing")
+    ready = [(n, t) for n in sel for t in n.todos_full
+             if not t["done"] and not n.is_stuck(t, by_name) and not t["hitl"] and t["pri"] != UNASSIGNED]
+    pick, _ = pick_next(nodes, a.under, afk_only=True)
+    unrefl = len(unreflected(nodes, a.under))
+    print(f"\nAGENT CAN DO ALONE  ({len(ready)} ready todo(s))")
+    print(f"  next: P{pick[0]} {pick[2]}  ({pick[1]})" if pick else "  nothing ready (blocked on you, or done)")
+    if unrefl:
+        print(f"  housekeeping: {unrefl} unreflected item(s) (`ft reflect --check`)")
+    return 0
+
+
+def cmd_assume(a, nodes, root):
+    """Unattended escape hatch: answer an open question with its recommended option (or --option N), flagged unconfirmed
+    so the human can review/reopen. Unblocks todos waiting on it."""
+    n = next((x for x in nodes if x.name == a.name), None)
+    q = next((x for x in n.questions if x["id"] == a.qid), None) if n else None
+    if not n or not q:
+        print(f"no question {a.qid} on node '{a.name}'", file=sys.stderr)
+        return 1
+    if q["state"] != " ":
+        print(f"{a.qid} is not open", file=sys.stderr)
+        return 1
+    if not q["options"]:
+        print(f"{a.qid} has no options to assume; research it or leave it for the human", file=sys.stderr)
+        return 1
+    if not 1 <= a.option <= len(q["options"]):
+        print(f"--option must be 1..{len(q['options'])}", file=sys.stderr)
+        return 1
+    choice = q["options"][a.option - 1]
+    out, in_q = [], False
+    for line in n.sections.get("Questions", "").splitlines():
+        m = Q_RE.match(line)
+        if m:
+            if in_q:
+                out.append(f"  - A (agent): assumed default '{choice}' while unattended; unconfirmed, reopen to change")
+            in_q = m.group(2) == a.qid
+            if in_q:
+                line = line.replace("- [ ]", "- [~]", 1)
+        elif in_q and not (O_RE.match(line) or A_RE.match(line)):
+            out.append(f"  - A (agent): assumed default '{choice}' while unattended; unconfirmed, reopen to change")
+            in_q = False
+        out.append(line)
+    if in_q:
+        out.append(f"  - A (agent): assumed default '{choice}' while unattended; unconfirmed, reopen to change")
+    text = replace_section(n.path.read_text(), "Questions", "\n".join(out))
+    text = re.sub(rf"\s*\{{blocked:\s*{a.qid}\}}", "", text)
+    n.path.write_text(text)
+    print(f"{a.qid} assumed '{choice}' in {n.rel} (needs human confirmation)")
     return 0
 
 
@@ -1025,12 +1149,22 @@ def main():
     mv.add_argument("new_parent", help="new parent node name or '-' for root")
     it = sub.add_parser("init", help="bootstrap a draft tree from an existing codebase")
     it.add_argument("path", nargs="?", default=".", help="codebase root to scan (default: .)")
+    st = sub.add_parser("status", help="one-screen briefing: progress, what needs the human, what the agent can do alone")
+    st.add_argument("--under")
+    asm = sub.add_parser("assume", help="unattended: answer an open question with its recommended option, flagged unconfirmed")
+    asm.add_argument("name")
+    asm.add_argument("qid")
+    asm.add_argument("--option", type=int, default=1, help="1-based option number (default 1 = recommended)")
+    ps = sub.add_parser("pause", help="human kill switch: stop unattended work")
+    ps.add_argument("reason", nargs="*")
+    sub.add_parser("resume", help="clear the pause")
     a = ap.parse_args()
     root = Path(a.root).resolve()
     nodes = load(root)
     sys.exit({"lint": cmd_lint, "tree": cmd_tree, "todos": cmd_todos,
               "link": cmd_link, "next": cmd_next, "work": cmd_work, "questions": cmd_questions, "ask": cmd_ask, "view": cmd_view, "refs": cmd_refs, "new": cmd_new, "index": cmd_index,
-              "reflect": cmd_reflect, "delete": cmd_delete, "rename": cmd_rename, "move": cmd_move, "init": cmd_init}[a.cmd](a, nodes, root))
+              "reflect": cmd_reflect, "delete": cmd_delete, "rename": cmd_rename, "move": cmd_move, "init": cmd_init,
+              "status": cmd_status, "assume": cmd_assume, "pause": cmd_pause, "resume": cmd_resume}[a.cmd](a, nodes, root))
 
 
 if __name__ == "__main__":

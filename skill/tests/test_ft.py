@@ -404,3 +404,77 @@ class LintPhilosophyTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         out = ft(d, "lint").stdout
         self.assertIn("DRAFT placeholder", out)
+
+
+class AutonomyTests(unittest.TestCase):
+    def ask_opts(self, p, *opts):
+        args = ["ask", "alpha", "Which?"]
+        for o in opts:
+            args += ["--option", o]
+        return ft(p, *args)
+
+    def test_status_sections_and_needs_you(self):
+        p = make(["- [ ] (P1) pick it {blocked: Q1}", "- [ ] (P2) human only {hitl}", "- [ ] (P2) free work"])
+        self.ask_opts(p, "MIT", "GPL")
+        out = ft(p, "status").stdout
+        self.assertIn("PROGRESS", out)
+        self.assertIn("answer features/alpha/alpha.md Q1", out)
+        self.assertIn("(blocks 1 todo)", out)
+        self.assertIn("[agent would pick: MIT]", out)
+        self.assertIn("do (needs a human)", out)
+        self.assertIn("next: P2 free work", out)
+
+    def test_assume_unblocks_and_flags_unconfirmed(self):
+        p = make(["- [ ] (P1) pick it {blocked: Q1}"])
+        self.ask_opts(p, "MIT", "GPL")
+        self.assertTrue(ft(p, "next").stdout.startswith("NONE"))
+        r = ft(p, "assume", "alpha", "Q1", "--option", "2")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        text = (p / "features/alpha/alpha.md").read_text()
+        self.assertIn("- [~] Q1: Which?", text)
+        self.assertIn("A (agent): assumed default 'GPL'", text)
+        self.assertNotIn("{blocked", text)
+        self.assertIn("pick it", ft(p, "next").stdout)
+        self.assertIn("confirm features/alpha/alpha.md Q1", ft(p, "status").stdout)
+        self.assertEqual(ft(p, "lint").returncode, 0, ft(p, "lint").stdout)
+
+    def test_assume_refuses_optionless_and_closed(self):
+        p = make(["- [ ] (P1) x"])
+        ft(p, "ask", "alpha", "No options?")
+        self.assertEqual(ft(p, "assume", "alpha", "Q1").returncode, 1)
+        self.ask_opts(p, "a", "b")
+        self.assertEqual(ft(p, "assume", "alpha", "Q2").returncode, 0)
+        self.assertEqual(ft(p, "assume", "alpha", "Q2").returncode, 1)
+
+    def test_pause_gates_next_and_work_then_resume(self):
+        p = make(["- [ ] (P1) do it"])
+        ft(p, "pause", "lunch", "break")
+        self.assertIn("PAUSED: lunch break", ft(p, "next").stdout)
+        self.assertIn("PAUSED", ft(p, "status").stdout)
+        r, calls = work(p, "ok", "--max", "2")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertEqual(calls, [])
+        ft(p, "resume")
+        self.assertIn("do it", ft(p, "next").stdout)
+
+    def test_e2e_unattended_run_assume_then_work_then_handoff(self):
+        p = make(["- [ ] (P1) pick license {blocked: Q1}", "- [ ] (P2) free work"])
+        ft(p, "ask", "alpha", "Which license?", "--option", "MIT", "--option", "GPL")
+        r, calls = work(p, "done", "--max", "5")  # blocked todo is skipped; free one is done; then research
+        self.assertEqual(calls.count("Work loop"), 1, calls)
+        self.assertEqual(ft(p, "assume", "alpha", "Q1").returncode, 0)  # agent unblocks itself
+        r, calls = work(p, "done", "--max", "5")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("pick license", (p / "features/alpha/alpha.md").read_text().split("## Questions")[0])
+        out = ft(p, "status").stdout
+        self.assertIn("confirm features/alpha/alpha.md Q1", out)  # human's only job: review the assumption
+        self.assertIn("nothing ready", out)
+
+    HOOK = HookTests.HOOK
+
+    def test_stop_hook_silent_while_paused(self):
+        p = make(["- [x] (P1) finished but not moved"])
+        ft(p, "pause")
+        self.assertEqual(HookTests.run_hook(self, "stop", p).returncode, 0)
+        ft(p, "resume")
+        self.assertEqual(HookTests.run_hook(self, "stop", p).returncode, 2)

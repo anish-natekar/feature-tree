@@ -21,6 +21,9 @@ Plan lives in `features/` as markdown. Format rules: `features/SCHEMA.md`. Helpe
 - `ft lint` — schema, size, links, question/todo consistency. Run after every edit; fix errors before moving on.
 - `ft reflect --check [--under NODE]` — exit 1 if any confirmed `[x]` todo/question hasn't been archived+distilled yet. `ft reflect NODE --todo "<text>" --note "<prose>"` / `--question Qn --note "<prose>"` — do the archiving (see Reflect below).
 - `ft delete NAME [--subtree] [--yes]`, `ft rename OLD NEW`, `ft move NAME NEW_PARENT|-` — structural edits to a mis-shaped tree. Dry-run by default for `delete`; pass `--yes` to apply.
+- `ft status [--under NODE]` — human briefing: PROGRESS, NEEDS YOU (questions to answer, assumptions to confirm, HITL todos, TLE, lint errors), AGENT CAN DO ALONE. Run it first when resuming and last when handing off.
+- `ft assume NODE Qn [--option N]` — unattended only: answer an optioned open question with its recommended option (default 1), marked `[~]` unconfirmed, unblocks its todos. Never for option-less questions.
+- `ft pause [reason]` / `ft resume` — human kill switch (`features/.paused`). While paused, `ft next` prints PAUSED and `ft work` exits 5: do no work.
 - `ft init [PATH]` — bootstrap a rough-draft tree from an existing codebase (refuses if `features/` is already non-empty).
 
 ## Plan mode (build/extend the tree)
@@ -44,6 +47,7 @@ Repeat until stopped by the user or nothing is left:
    - `ft ask NODE "question"` (state the options you see and your recommendation in the text),
    - add `{blocked: Qn}` to the end of that todo,
    - go back to step 2. Do not wait for the human.
+   - Unattended and the question has options with a safe, reversible recommended default: `ft assume NODE Qn` instead of stalling. Irreversible, costly or security-relevant choices stay open for the human.
 4. **Do it.** Implement, run the node's acceptance tests. Tests failing → keep the todo open (or `[~]` if partly done), add the blocker to its text or ask a question.
 5. **Checkpoint (before anything else).** Only when tests pass: flip the todo's checkbox to `[x]` (do not delete it or write to Implemented yet — that's Reflect's job, batched later), set `status` and `last_verified`, update the parent's status, `ft index && ft lint`. After the checkpoint everything you know that matters is on disk.
 6. **Context reset point.** The checkpoint is the safe moment to compact or clear context: the next step re-reads state with `ft next` / `ft questions`, so nothing is lost. If the user wants an unattended run, finish the todo, checkpoint, and stop with "checkpointed, safe to /compact"; do not rely on remembering anything not in the files. (A model cannot trigger `/compact` itself; the user, auto-compact, or a fresh session per todo does it.)
@@ -56,7 +60,7 @@ Research mode:
 2. Confident answer → set the question to `[~]` and add `  - A (agent): <one line>. Sources: [title](url)`; add the sources to the node's `## Citations`. Remove `{blocked: Qn}` from todos it unblocks. `ft lint`.
 3. Not answerable alone (preference, business decision, missing access) → leave `[ ]`, append what you found and the options to the question text so the human can answer fast.
 4. Go back to the Work loop; newly unblocked todos appear in `ft next`.
-5. If still `NONE`: stop. Report the open questions grouped by node, with paths and ids, as the handoff for the human.
+5. If still `NONE`: stop. Run `ft status` and report its NEEDS YOU list as the handoff for the human.
 
 ## Reflect
 
