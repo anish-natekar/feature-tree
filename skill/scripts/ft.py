@@ -1105,9 +1105,13 @@ def cmd_view(a, nodes, root):
     """Write one self-contained HTML viewer/editor; no server. Chromium browsers write via File System Access."""
     media = Path(__file__).resolve().parents[2] / "vscode-feature-tree" / "media"
     parts = {f: (media / f).read_text() for f in ("graph.css", "tree.js", "graph.js", "host-web.js")}
+    snap = [{"path": f.relative_to(root).as_posix(), "text": f.read_text()}
+            for f in sorted(root.rglob("*")) if f.is_file() and (f.suffix == ".md" or f.relative_to(root).as_posix() == ".paused")]
+    snap_js = "window.FT_SNAPSHOT=" + json.dumps(snap).replace("</", "<\\/") + ";"
     html = ("<!doctype html><html><head><meta charset=\"utf-8\"><title>Feature Tree</title><style>"
             + parts["graph.css"] + "</style></head><body><div id=\"toolbar\"></div>"
             "<div id=\"viewport\"><div id=\"canvas\"><svg id=\"edges\"></svg></div></div>"
+            + f"<script>{snap_js}</script>"
             + "".join(f"<script>{parts[f]}</script>" for f in ("tree.js", "host-web.js", "graph.js"))
             + "</body></html>")
     out = Path(a.out) if a.out else root / "viewer.html"

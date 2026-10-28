@@ -406,6 +406,17 @@ class LintPhilosophyTests(unittest.TestCase):
         self.assertIn("DRAFT placeholder", out)
 
 
+class ViewSnapshotTests(unittest.TestCase):
+    def test_view_embeds_snapshot_so_it_opens_populated(self):
+        p = make(["- [ ] (P1) one </script> trick"])
+        out = p / "v.html"
+        self.assertEqual(ft(p, "view", "-o", str(out)).returncode, 0)
+        html = out.read_text()
+        self.assertIn("window.FT_SNAPSHOT=", html)
+        self.assertIn("alpha/alpha.md", html)
+        self.assertEqual(html.count("</script>"), 4)  # embedded text cannot close the snapshot script early
+
+
 class DigestTests(unittest.TestCase):
     def git(self, p, *args):
         subprocess.run(["git", "-c", "user.email=a@b", "-c", "user.name=t", *args], cwd=p, check=True, capture_output=True)

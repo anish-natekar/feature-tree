@@ -36,8 +36,12 @@
       clearInterval(timer);
       timer = setInterval(() => { if (!document.hidden) scan(false); }, 1500);
     },
-    onFiles(f) { cb = f; },
+    onFiles(f) {
+      cb = f;
+      if (!dir && window.FT_SNAPSHOT) cb(window.FT_SNAPSHOT); // generated viewer opens populated; pick a folder to go live/edit
+    },
     async write(path, text) {
+      if (!dir) throw new Error("snapshot is read-only: click “open features/ folder” to edit");
       const fh = await fileHandle(path);
       const w = await fh.createWritable();
       await w.write(text);
