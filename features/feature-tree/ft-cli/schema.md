@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-The node schema itself: frontmatter + the fixed 9-section order (Abstract, Acceptance Tests, Todos, Questions, Implemented, Facts & Details, Citations, Archived, Children), parsed and serialized byte-identically by `skill/scripts/ft.py`. `ft lint`'s foundational checks live here too — schema/section-order errors, size warnings (`WARN_MAX=600` words), missing/stale section index ("Jump:" line, fixable via `ft index`), and broken parent/child or wikilink references. Todos are 3-state (`[ ]`/`[~]`/`[x]`), mirroring Questions' convention.
+The node format itself: frontmatter plus nine sections in a fixed order (Abstract, Acceptance Tests, Todos, Questions, Implemented, Facts & Details, Citations, Archived, Children). The tool reads and writes nodes so that an unedited file comes back byte-for-byte identical, which keeps diffs clean. The foundational lint checks live here too: schema and section-order errors, size warnings above 600 words, a missing or stale jump line (fixable by re-indexing), and broken parent, child or wikilink references. Todos have three states (not started, in progress, done), mirroring the convention already used for questions.
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.TodoStateTests -v` passes (2 tests: 3-state checkbox parse/format round-trip).
@@ -20,10 +20,10 @@ The node schema itself: frontmatter + the fixed 9-section order (Abstract, Accep
 ## Questions
 
 ## Implemented
-- Node schema parser/serializer: frontmatter + fixed 9-section order (Abstract, Acceptance Tests, Todos, Questions, Implemented, Facts & Details, Citations, Archived, Children), byte-identical round-trip on unedited files.
-- `ft lint`: schema/section-order errors, size warnings (`WARN_MAX=600` words), missing/stale section index ("Jump:" line, fixable via `ft index`), broken parent/child links.
-- Todos widen to 3-state checkbox `[ ]`/`[~]`/`[x]`, mirroring Questions' 3-state convention; `ft next` prefers in-progress over higher-priority not-started.
-LintBaseTests: clean pass, section order, short/oversize nodes, stale Jump, broken wikilink, missing parent.
+- Node parser and serializer with the fixed section order and a byte-identical round-trip on unedited files.
+- Lint covering schema and section-order errors, oversize warnings, missing or stale jump lines, and broken parent, child and wikilink references.
+- Three-state todos; the next-work command prefers an in-progress todo over a higher-priority one not yet started.
+- A dedicated test class now exercises these base lint rules directly: clean pass, section order, short and oversize nodes, stale jump line, broken wikilink and missing parent.
 
 ## Facts & Details
 

@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-`{blocked-by: node-name}` (Wayfinder-inspired cross-branch dependency gate): a todo marker that excludes the todo from `ft next`/`ft todos`'s frontier until the target node's `status` is `done`, regardless of where either node sits in the tree. Paired with `{hitl}` + `--afk-only` on `ft next`/`ft todos`, which filters human-only todos out of unattended/looped runs.
+A way to say that one todo cannot start until a different node is done, no matter where either node sits in the tree. Inspired by Matt Pocock's Wayfinder, the blocked-by marker hides the todo from the list of next work until the target node reaches done status. A second marker flags todos only a human can do, and a flag on the next-work commands filters those out so unattended or looped agent runs never pick them up.
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.DependencyTests -v` passes (4 tests).
@@ -20,8 +20,8 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 ## Questions
 
 ## Implemented
-- `{blocked-by: node-name}` (Wayfinder-inspired cross-branch dependency gate): excluded from `ft next`/`ft todos` until the target node's `status` is `done`, regardless of tree position; `ft todos` shows `⛔ blocked by <name>`; `ft lint` warns on a dangling target.
-- `{hitl}` flag + `--afk-only` on `ft next`/`ft todos`: filters human-only todos out of unattended/looped runs.
+- Blocked-by marker: the todo is excluded from the next-work frontier until the named node is done, regardless of tree position. The todo listing shows who it is blocked by, and lint warns when the named node does not exist.
+- Human-in-the-loop marker plus an away-from-keyboard filter: human-only todos are skipped on unattended or looped runs.
 
 ## Facts & Details
 

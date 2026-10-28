@@ -10,20 +10,20 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-Hierarchical planning method delivered as a Claude skill plus a small `ft` CLI: a tree of markdown nodes under `features/`, versioned with the code, used to plan work without ever touching project code during planning. This root node exists to dogfood the method on itself — it describes feature-tree's own subsystems (CLI, VS Code extension, standalone viewer, hooks, distribution) the same way it would describe any other project's features. There is no single build/test command for the whole project; each child has its own acceptance test, and this node's own test is manual: `ft lint` and `ft index` run clean across the whole tree.
+A hierarchical planning method delivered as a Claude skill plus a small command line tool: a tree of markdown nodes kept next to the code and versioned with it, used to plan and steer work without touching project code during planning. This root node exists to dogfood the method on itself. It describes feature-tree's own subsystems (the command line tool, the editor extension, the standalone viewer, the hooks and distribution) the same way it would describe any other project's features. There is no single build or test command for the whole project. Each child has its own acceptance test, and this node's own test is manual: lint and index run clean across the whole tree.
 
 ## Acceptance Tests
 manual: `python3 skill/scripts/ft.py lint` reports 0 errors across all nodes (including this subtree); `python3 skill/scripts/ft.py tree` shows all 5 children under `feature-tree`.
 
 ## Todos
-- [ ] (P2) rewrite the nodes `ft lint` flags as "reads like code docs" so they state intent, decisions and facts in plain language, with commands kept only in Acceptance Tests
 - [ ] (P3) keep this subtree current as the real todos below are implemented — re-run `ft lint`/`ft index` after any further schema or UI change
 
 ## Questions
 
 ## Implemented
-- Scaffolded this root and its 5 children with `ft new`, following the Plan-mode conventions in `skill/SKILL.md` (real Abstract/Acceptance Tests/Todos/Implemented per node, not placeholder text).
-Added `## Design Philosophy` to features/SCHEMA.md: natural-language-only intent (no implementation detail), one file per node never fragmented into spec/design/tasks files (explicit rejection of GitHub Spec Kit/AWS Kiro's pattern), and the fog-of-war rule against pre-decomposing vague scope into premature child nodes. EARS-style Acceptance Tests phrasing noted as a style tip, not enforced.
+- Scaffolded this root and its children following the planning conventions in the skill, with real abstracts, tests, todos and notes on each node rather than placeholder text.
+- Wrote the Design Philosophy into the schema document: nodes hold natural-language intent and decisions only, never implementation detail; each node is one file and is never fragmented into separate spec, design and task files (an explicit rejection of GitHub Spec Kit and AWS Kiro's pattern); and vague scope is not decomposed into premature child nodes (fog of war). Writing acceptance tests as testable statements is noted as a style tip, not enforced.
+All 13 flagged nodes rewritten in plain language; lint now enforces this altitude going forward.
 
 ## Facts & Details
 
@@ -33,6 +33,7 @@ Added `## Design Philosophy` to features/SCHEMA.md: natural-language-only intent
 
 ## Archived
 - [x] (P2) write a `## Design Philosophy` section into `features/SCHEMA.md`: natural-language intent/decisions only (no implementation detail), one file per node never fragmented into separate spec/design/tasks files, and the fog-of-war rule (don't create a child node for scope that's still vague). Researched from Wayfinder, GitHub Spec Kit, and AWS Kiro.
+- [x] (P2) rewrite the nodes `ft lint` flags as "reads like code docs" so they state intent, decisions and facts in plain language, with commands kept only in Acceptance Tests
 
 ## Children
 - [[autonomy]] (done)

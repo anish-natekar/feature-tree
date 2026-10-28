@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-How feature-tree reaches anyone besides its author: the public GitHub repo (source of truth for the skill, CLI, and extension), and whatever path the VS Code extension takes to get installed elsewhere (currently a dev-only local install copied into `~/.vscode/extensions/` (a plain copy, not a symlink: re-copy `media/` after changes), not a packaged `.vsix` or Marketplace listing).
+How feature-tree reaches anyone besides its author: the public GitHub repository (the source of truth for the skill, the command line tool and the editor extension), and whatever path the VS Code extension takes to get installed elsewhere. Today that path is a developer-only local install copied into the user's VS Code extensions folder. It is a plain copy, not a link, so the extension's UI assets must be copied again after changes. There is no packaged installer file and no Marketplace listing yet.
 
 ## Acceptance Tests
 manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist at the repo root; `vsce package` produces an installable `.vsix` without error.
@@ -26,11 +26,9 @@ manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist 
   - A (agent): assumed default 'Keep it local/dev-only (current — symlinked into `~/.vscode/extensions/`, no publisher id needed)' while unattended; unconfirmed, reopen to change
 
 ## Implemented
-- Public GitHub repo at `https://github.com/anish-natekar/feature-tree`.
-- `LICENSE` (MIT) and `README.md` at the repo root.
-- `.gitignore` covering `out/`, `node_modules/`, etc.
-- Fixed packaging bugs that blocked real activation: `package.json` `main` path (`out/extension.js` → `out/src/extension.js`), added `.vscode/launch.json`/`tasks.json` for F5, and a permanent local install under `~/.vscode/extensions/` (a copy; re-copy `vscode-feature-tree/media/` after UI changes, or the panel shows stale UI) to avoid the multi-window Extension-Development-Host workflow.
-Decision (agent-assumed, unconfirmed Q1): keep local/dev-only, no Marketplace publisher. Revisit by reopening Q1.
+- Public GitHub repository, with an MIT license and a README at the root, and an ignore file covering build output and dependencies.
+- Fixed packaging bugs that blocked real activation: the extension's entry point path was wrong, launch and build configs were added so the extension can be run with F5, and a permanent local install replaced the awkward multi-window development workflow. Because it is a copy, the UI assets must be re-copied after UI changes or the panel shows stale UI.
+Decision (agent-assumed, unconfirmed Q1): keep the extension local and developer-only, with no Marketplace publisher. Revisit by reopening Q1.
 
 ## Facts & Details
 

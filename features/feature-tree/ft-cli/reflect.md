@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-`ft reflect`: the archive/distill stage. Moves a confirmed `[x]` todo or question verbatim into `## Archived`, and distills a one-line prose note into `## Implemented` (todos) or `## Facts & Details` (questions). `--check` backs both the Stop hook and the Plan-mode gate via the shared `unreflected()` helper, so the two never drift apart.
+The archive-and-distill stage of the work cycle. When a todo or question is confirmed done, reflect moves it unchanged into the Archived section and distills a one-line prose note into Implemented (for todos) or Facts & Details (for questions), so the node's current state reads as a summary of what is true rather than a pile of finished checkboxes. A check mode reports anything confirmed but not yet reflected. The stop guard and the planning-mode gate both rely on that same check, so the two can never drift apart.
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.ReflectTests -v` passes (5 tests).
@@ -20,7 +20,8 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 ## Questions
 
 ## Implemented
-- `ft reflect`: archives a confirmed `[x]` todo/question into `## Archived`, distills a note into `## Implemented`/`## Facts & Details`; `--check` backs the Stop hook and the Plan-mode gate.
+- Reflect command: archives a confirmed todo or question verbatim and distills a note into Implemented or Facts & Details.
+- Check mode, shared with the stop guard and the planning-mode gate, listing confirmed items that still need reflecting.
 
 ## Facts & Details
 

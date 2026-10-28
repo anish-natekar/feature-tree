@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-The headless `ft work` driver: runs `claude -p` once per todo until `ft next` returns NONE, triaging unassigned-priority todos first. Per-task time budgets via inline `{limit: Ns}` markers, with `{tle}` recorded on timeout (process-group kill via `run_limited()`), a consecutive-TLE abort guard, and auto-split of nodes once they exceed `MAX_OPEN_TODOS`.
+The headless driver that works through a tree unattended. It launches a fresh Claude run for each todo until the next-work command reports nothing left, triaging todos that have no priority first. Each task can carry a time budget; when a run exceeds it, the todo is marked as having timed out and its whole process group is killed. Several consecutive timeouts abort the loop, and nodes that accumulate too many open todos are split automatically. A reflect step runs after work so checked items never pile up.
 
 ## Acceptance Tests
 `python3 -m unittest skill.tests.test_ft.WorkTests skill.tests.test_ft.MarkerTests -v` passes (10 tests: work-loop triage/limit/abort behavior, `{limit}`/`{tle}` marker parsing and lint).
@@ -21,9 +21,9 @@ The headless `ft work` driver: runs `claude -p` once per todo until `ft next` re
 ## Questions
 
 ## Implemented
-- `ft work` headless driver: `WORK_PROMPTS`, `run_limited()` process-group kill on timeout, `mark_tle()`, auto-split of nodes over `MAX_OPEN_TODOS=12`.
-- `{limit}`/`{tle}` inline todo markers with `ft lint` syntax validation.
-Verified with a real headless run (haiku, throwaway project): `--permission-mode acceptEdits --allowedTools "Bash(python3 skill/scripts/ft.py:*)" "Bash(test:*)" "Bash(grep:*)"` completed a todo; add Bash(<test cmd>:*) per node tests. ft work now also runs a Reflect step so checked items never pile up.
+- Headless driver with per-step prompts, process-group kill on timeout, timeout marking and automatic splitting of nodes with more than twelve open todos.
+- Time-limit and timed-out markers on todos, with lint validating their syntax.
+- Verified with a real headless run on a throwaway project using the small Haiku model: allowing edits plus a narrow set of shell commands (the tree tool, test and grep) was enough to complete a todo. Each node's own test command must also be allowed for its tests to run.
 
 ## Facts & Details
 

@@ -10,7 +10,7 @@ last_verified: 2026-10-28
 Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](#todos) · [Questions](#questions) · [Implemented](#implemented) · [Facts & Details](#facts-&-details) · [Citations](#citations) · [Archived](#archived) · [Children](#children)
 
 ## Abstract
-The `featureTree.node` `CustomTextEditorProvider`: opens a single node as its own editor tab, reusing the drawer UI, with `onDidChangeTextDocument` live re-render and a `write`/`raw`/`external` postMessage bridge (`nodeHost()` in `graph.js`). Pure visualizer/editor — no agent-launching bridge.
+A custom editor that opens a single node as its own editor tab, reusing the drawer UI instead of showing raw markdown. It re-renders live whenever the underlying document changes and talks to the file through a small write, raw and external message bridge. It is purely a visualizer and editor, with no bridge for launching agents.
 
 ## Acceptance Tests
 `cd vscode-feature-tree && npm test` (after `tsc -p .`), then `node --test --test-name-pattern "node-editor" out/test/graph.test.js` passes (3 tests, all titled `node-editor mode: ...`).
@@ -24,8 +24,8 @@ The `featureTree.node` `CustomTextEditorProvider`: opens a single node as its ow
   - A (agent): assumed default 'Keep opt-in (current — `priority: "option"` in `customEditors`, opened explicitly via "Open With" or from the graph panel)' while unattended; unconfirmed, reopen to change
 
 ## Implemented
-- `featureTree.node` custom editor: single-node tab reusing the drawer UI, `onDidChangeTextDocument` live re-render, `write`/`raw`/`external` postMessage bridge (`nodeHost()` in `graph.js`), CSS that hides graph chrome and fills the tab (`body.node-editor` rules in `graph.css`).
-Decision (agent-assumed, unconfirmed Q1): stay opt-in (`priority: "option"`). Revisit by reopening Q1.
+- Single-node editor tab reusing the drawer UI, with live re-render on document changes, the write, raw and external message bridge, and styling that hides the graph chrome so the node fills the tab.
+Decision (agent-assumed, unconfirmed Q1): the editor stays opt-in, opened explicitly through Open With or from the graph panel, rather than replacing plain markdown. Revisit by reopening Q1.
 
 ## Facts & Details
 
