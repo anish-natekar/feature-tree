@@ -812,6 +812,48 @@ def cmd_status(a, nodes, root):
     return 0
 
 
+def cmd_digest(a, nodes, root):
+    """What changed in the plan since WHEN, read from git history: finished todos, new questions, agent-assumed
+    decisions, added nodes. Read-only."""
+    since = a.since
+    try:
+        patch = subprocess.run(["git", "log", f"--since={since}", "-p", "--format=", "--", str(root)],
+                               cwd=root, capture_output=True, text=True, check=True).stdout
+        added = subprocess.run(["git", "log", f"--since={since}", "--diff-filter=A", "--name-only", "--format=", "--", str(root)],
+                               cwd=root, capture_output=True, text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("digest needs the plan to be in a git repository", file=sys.stderr)
+        return 1
+    done, asked, assumed = [], [], []
+    for line in patch.splitlines():
+        if not line.startswith("+") or line.startswith("+++"):
+            continue
+        s = line[1:].strip()
+        m = re.match(r"- \[x\] (?:\(P[0-3?]\) )?(.*)", s)
+        if m and not re.match(r"Q\d+:", m.group(1)):
+            done.append(m.group(1))
+        m = re.match(r"- \[ \] (Q\d+: .*)", s)
+        if m:
+            asked.append(m.group(1))
+        m = re.match(r"- A \(agent\): assumed default '(.*?)'", s)
+        if m:
+            assumed.append(m.group(1))
+    new_nodes = sorted({Path(f).stem for f in added.split() if f.endswith(".md") and Path(f).stem not in ("SCHEMA",)})
+    def uniq(xs):
+        return list(dict.fromkeys(xs))
+    done, asked, assumed = uniq(done), uniq(asked), uniq(assumed)
+    print(f"SINCE {since}")
+    if not (done or asked or assumed or new_nodes):
+        print("  nothing changed in the plan")
+        return 0
+    for title, items in (("FINISHED", done), ("QUESTIONS RAISED", asked), ("DECIDED BY AGENT (unconfirmed)", assumed), ("NODES ADDED", new_nodes)):
+        if items:
+            print(f"\n{title}  ({len(items)})")
+            for i in items:
+                print(f"  - {i}")
+    return 0
+
+
 def cmd_assume(a, nodes, root):
     """Unattended escape hatch: answer an open question with its recommended option (or --option N), flagged unconfirmed
     so the human can review/reopen. Unblocks todos waiting on it."""
@@ -1171,6 +1213,8 @@ def main():
     it.add_argument("path", nargs="?", default=".", help="codebase root to scan (default: .)")
     st = sub.add_parser("status", help="one-screen briefing: progress, what needs the human, what the agent can do alone")
     st.add_argument("--under")
+    dg = sub.add_parser("digest", help="what changed in the plan since a time, from git history")
+    dg.add_argument("--since", default="1 day ago", help="git date expression (default: '1 day ago')")
     asm = sub.add_parser("assume", help="unattended: answer an open question with its recommended option, flagged unconfirmed")
     asm.add_argument("name")
     asm.add_argument("qid")
@@ -1184,7 +1228,7 @@ def main():
     sys.exit({"lint": cmd_lint, "tree": cmd_tree, "todos": cmd_todos,
               "link": cmd_link, "next": cmd_next, "work": cmd_work, "questions": cmd_questions, "ask": cmd_ask, "view": cmd_view, "refs": cmd_refs, "new": cmd_new, "index": cmd_index,
               "reflect": cmd_reflect, "delete": cmd_delete, "rename": cmd_rename, "move": cmd_move, "init": cmd_init,
-              "status": cmd_status, "assume": cmd_assume, "pause": cmd_pause, "resume": cmd_resume}[a.cmd](a, nodes, root))
+              "status": cmd_status, "digest": cmd_digest, "assume": cmd_assume, "pause": cmd_pause, "resume": cmd_resume}[a.cmd](a, nodes, root))
 
 
 if __name__ == "__main__":

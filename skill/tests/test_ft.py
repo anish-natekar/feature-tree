@@ -406,6 +406,37 @@ class LintPhilosophyTests(unittest.TestCase):
         self.assertIn("DRAFT placeholder", out)
 
 
+class DigestTests(unittest.TestCase):
+    def git(self, p, *args):
+        subprocess.run(["git", "-c", "user.email=a@b", "-c", "user.name=t", *args], cwd=p, check=True, capture_output=True)
+
+    def test_digest_reports_changes_and_quiet(self):
+        p = make(["- [ ] (P1) ship it", "- [ ] (P2) pick it {blocked: Q1}"])
+        self.git(p, "init", "-q")
+        self.git(p, "add", "-A")
+        self.git(p, "commit", "-qm", "base")
+        ft(p, "ask", "alpha", "Which?", "--option", "MIT", "--option", "GPL")
+        ft(p, "assume", "alpha", "Q1")
+        f = p / "features" / "alpha" / "alpha.md"
+        f.write_text(f.read_text().replace("- [ ] (P1) ship it", "- [x] (P1) ship it"))
+        ft(p, "new", "alpha", "beta")
+        self.git(p, "add", "-A")
+        self.git(p, "commit", "-qm", "work")
+        out = ft(p, "digest", "--since", "1 hour ago").stdout
+        self.assertIn("FINISHED", out)
+        self.assertIn("ship it", out)
+        self.assertIn("DECIDED BY AGENT", out)
+        self.assertIn("MIT", out)
+        self.assertIn("NODES ADDED", out)
+        self.assertIn("beta", out)
+        self.assertIn("nothing changed", ft(p, "digest", "--since", "2099-01-01").stdout)
+
+    def test_digest_needs_git(self):
+        p = make(["- [ ] (P1) x"])
+        r = ft(p, "digest")
+        self.assertEqual(r.returncode, 1)
+
+
 class AutonomyTests(unittest.TestCase):
     def ask_opts(self, p, *opts):
         args = ["ask", "alpha", "Which?"]

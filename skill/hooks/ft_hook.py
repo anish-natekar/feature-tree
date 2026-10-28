@@ -61,7 +61,7 @@ def hook_context(data):
     if not root:
         return 0
     py = sys.executable
-    for args in (["status"], ["next"]):
+    for args in (["status"], ["digest", "--since", "1 day ago"], ["next"]):
         out = subprocess.run([py, str(HERE.parent / "scripts" / "ft.py"), "--root", str(root), *args], capture_output=True, text=True).stdout
         print(f"$ ft {' '.join(args)}\n{out}")
     return 0
