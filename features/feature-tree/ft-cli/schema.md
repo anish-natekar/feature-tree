@@ -1,6 +1,6 @@
 ---
 name: schema
-status: in-progress
+status: planned
 parent: ft-cli
 tests: python3 -m unittest skill.tests.test_ft.TodoStateTests
 last_verified: 2026-10-28

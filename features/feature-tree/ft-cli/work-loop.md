@@ -1,6 +1,6 @@
 ---
 name: work-loop
-status: in-progress
+status: planned
 parent: ft-cli
 tests: python3 -m unittest skill.tests.test_ft.WorkTests skill.tests.test_ft.MarkerTests
 last_verified: 2026-10-28

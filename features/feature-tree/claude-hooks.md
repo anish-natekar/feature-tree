@@ -1,6 +1,6 @@
 ---
 name: claude-hooks
-status: in-progress
+status: planned
 parent: feature-tree
 tests: python3 -m unittest skill.tests.test_ft.HookTests
 last_verified: 2026-10-28

@@ -363,6 +363,39 @@ class RollupTests(unittest.TestCase):
         self.assertIn("[100%]", child_line)  # child's own subtree is fully done
 
 
+class StatusSyncTests(unittest.TestCase):
+    def test_index_sets_in_progress_when_todo_actively_worked(self):
+        p = make(["- [~] (P1) doing it"])
+        ft(p, "index")
+        text = (p / "features/alpha/alpha.md").read_text()
+        self.assertIn("status: in-progress", text)
+
+    def test_index_sets_done_when_no_open_items_and_verified(self):
+        p = make([])
+        f = p / "features/alpha/alpha.md"
+        f.write_text(f.read_text().replace("last_verified:", "last_verified: 2026-10-28"))
+        ft(p, "index")
+        self.assertIn("status: done", f.read_text())
+
+    def test_index_keeps_planned_when_no_open_items_but_unverified(self):
+        p = make([])
+        ft(p, "index")
+        text = (p / "features/alpha/alpha.md").read_text()
+        self.assertIn("status: planned", text)
+
+    def test_index_demotes_in_progress_to_planned_without_active_todo(self):
+        p = make(["- [ ] (P1) not started yet"])
+        f = p / "features/alpha/alpha.md"
+        f.write_text(f.read_text().replace("status: planned", "status: in-progress"))
+        ft(p, "index")
+        self.assertIn("status: planned", f.read_text())
+
+    def test_lint_warns_on_stale_status(self):
+        p = make(["- [~] (P1) doing it"])  # template default is status: planned, computed is in-progress
+        out = ft(p, "lint").stdout
+        self.assertIn("status stale", out)
+
+
 class LintPhilosophyTests(unittest.TestCase):
     def test_lint_warns_on_draft_placeholder_abstract(self):
         d = Path(tempfile.mkdtemp())

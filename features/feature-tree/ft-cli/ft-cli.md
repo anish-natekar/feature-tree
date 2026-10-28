@@ -1,6 +1,6 @@
 ---
 name: ft-cli
-status: in-progress
+status: done
 parent: feature-tree
 tests: python3 -m unittest skill.tests.test_ft
 last_verified: 2026-10-28
@@ -33,8 +33,8 @@ The `skill/scripts/ft.py` command-line driver: the single source of truth for pa
 - [[cross-branch-deps]] (done)
 - [[init]] (done)
 - [[progress-rollup]] (done)
-- [[questions]] (in-progress)
+- [[questions]] (planned)
 - [[reflect]] (done)
-- [[schema]] (in-progress)
+- [[schema]] (planned)
 - [[structural-editing]] (done)
-- [[work-loop]] (in-progress)
+- [[work-loop]] (planned)

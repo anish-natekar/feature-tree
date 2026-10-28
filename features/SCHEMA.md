@@ -119,5 +119,6 @@ Every node has one line under its title: `Jump: [Abstract](#abstract) · …`. `
 
 - Body size: warn under 80 words, warn over 600, error over 900. Too big → split into children. Too small → merge into parent.
 - `done` requires: no unchecked todos, `tests` set, `last_verified` set.
+- `status` is computed, not hand-maintained: `ft index` sets it to `in-progress` if any todo is `[~]`; else `done` if there are zero open todos/questions and `tests`/`last_verified` are set; else `planned`. Hand-editing `status` is fine but `ft lint` warns if it drifts from the computed value — run `ft index` to resync.
 - Confirmed todo (`[x]`) left in Todos → lint warning (run `ft reflect`).
 - Questions to the human cite node path, e.g. `features/robot/arm/gripper.md`.

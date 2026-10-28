@@ -1,6 +1,6 @@
 ---
 name: distribution
-status: in-progress
+status: planned
 parent: feature-tree
 tests: manual
 last_verified: 2026-10-28

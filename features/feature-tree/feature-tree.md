@@ -1,6 +1,6 @@
 ---
 name: feature-tree
-status: in-progress
+status: planned
 parent: 
 tests: manual
 last_verified: 2026-10-28
@@ -34,8 +34,8 @@ Added `## Design Philosophy` to features/SCHEMA.md: natural-language-only intent
 - [x] (P2) write a `## Design Philosophy` section into `features/SCHEMA.md`: natural-language intent/decisions only (no implementation detail), one file per node never fragmented into separate spec/design/tasks files, and the fog-of-war rule (don't create a child node for scope that's still vague). Researched from Wayfinder, GitHub Spec Kit, and AWS Kiro.
 
 ## Children
-- [[claude-hooks]] (in-progress)
-- [[distribution]] (in-progress)
-- [[ft-cli]] (in-progress)
-- [[standalone-viewer]] (in-progress)
-- [[vscode-extension]] (in-progress)
+- [[claude-hooks]] (planned)
+- [[distribution]] (planned)
+- [[ft-cli]] (done)
+- [[standalone-viewer]] (planned)
+- [[vscode-extension]] (planned)

@@ -166,6 +166,17 @@ class Node:
         target = by_name.get(bb)
         return target is not None and target.meta.get("status") != "done"
 
+    def computed_status(self):
+        """Derive status from actual todo/question state, not habit: in-progress needs a [~] todo,
+        done needs zero open todos/questions plus tests+last_verified (else it'd fail lint immediately)."""
+        if any(t["state"] == "~" for t in self.todos_full):
+            return "in-progress"
+        open_t = any(not t["done"] for t in self.todos_full)
+        open_q = any(q["state"] == " " for q in self.questions)
+        if not open_t and not open_q and self.meta.get("tests") and self.meta.get("last_verified"):
+            return "done"
+        return "planned"
+
 
 def parse(text):
     meta = {}
@@ -279,6 +290,8 @@ def lint(nodes, root):
             w(f"depth > {MAX_DEPTH}; flatten the tree")
         if toc_line() not in n.body:
             w("missing section index; run `ft index`")
+        if m.get("status") in STATUSES and m.get("status") != n.computed_status():
+            w(f"status stale (computed: '{n.computed_status()}'); run `ft index`")
         unset = sum(1 for d, p, _ in n.todos if p == UNASSIGNED and not d)
         if unset:
             w(f"{unset} todo(s) with unassigned priority (P?); infer and set")
@@ -937,11 +950,15 @@ def cmd_refs(a, nodes, root):
 def cmd_index(a, nodes, root):
     for n in nodes:
         kids = children_of(nodes, n.name)
-        text = ensure_sections(n.path.read_text())
+        orig = n.path.read_text()
+        text = ensure_sections(orig)
+        new_status = n.computed_status()
+        if n.meta.get("status") != new_status:
+            text = re.sub(r"^status:.*$", f"status: {new_status}", text, count=1, flags=re.M)
         listing = "\n".join(f"- [[{k.name}]] ({k.meta.get('status')})" for k in kids)
         new = re.sub(r"(## Children\n).*\Z", lambda m: m.group(1) + (listing + "\n" if listing else ""), text, flags=re.S)
         new = ensure_toc(new)
-        if new != text:
+        if new != orig:
             n.path.write_text(new)
             print(f"updated {n.rel}")
     return 0

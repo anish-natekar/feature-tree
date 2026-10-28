@@ -1,6 +1,6 @@
 ---
 name: questions
-status: in-progress
+status: planned
 parent: ft-cli
 tests: python3 -m unittest skill.tests.test_ft.QuestionOptionTests
 last_verified: 2026-10-28

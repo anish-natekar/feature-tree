@@ -1,6 +1,6 @@
 ---
 name: vscode-extension
-status: in-progress
+status: planned
 parent: feature-tree
 tests: npm test
 last_verified: 2026-10-28
@@ -30,6 +30,6 @@ Jump: [Abstract](#abstract) · [Acceptance Tests](#acceptance-tests) · [Todos](
 ## Archived
 
 ## Children
-- [[drawer-widgets]] (in-progress)
-- [[graph-panel]] (in-progress)
-- [[node-editor]] (in-progress)
+- [[drawer-widgets]] (done)
+- [[graph-panel]] (done)
+- [[node-editor]] (planned)

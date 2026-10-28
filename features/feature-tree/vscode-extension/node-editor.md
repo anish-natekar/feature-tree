@@ -1,6 +1,6 @@
 ---
 name: node-editor
-status: in-progress
+status: planned
 parent: vscode-extension
 tests: node --test --test-name-pattern "node-editor" out/test/graph.test.js
 last_verified: 2026-10-28

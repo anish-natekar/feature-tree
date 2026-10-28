@@ -1,6 +1,6 @@
 ---
 name: graph-panel
-status: in-progress
+status: done
 parent: vscode-extension
 tests: npm test
 last_verified: 2026-10-28
