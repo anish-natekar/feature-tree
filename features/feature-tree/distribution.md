@@ -29,6 +29,7 @@ manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist 
 - Public GitHub repo at `https://github.com/anish-natekar/feature-tree`.
 - `LICENSE` (MIT) and `README.md` at the repo root.
 - `.gitignore` covering `out/`, `node_modules/`, etc.
+- Fixed packaging bugs that blocked real activation: `package.json` `main` path (`out/extension.js` → `out/src/extension.js`), added `.vscode/launch.json`/`tasks.json` for F5, and a permanent install via symlink into `~/.vscode/extensions/` to avoid the multi-window Extension-Development-Host workflow.
 
 ## Facts & Details
 

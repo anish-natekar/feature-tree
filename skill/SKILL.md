@@ -31,7 +31,8 @@ Plan lives in `features/` as markdown. Format rules: `features/SCHEMA.md`. Helpe
 4. Use web search to pin down what a feature requires. Record sources in `## Citations`.
 5. Create or edit nodes: Abstract states what and why; Acceptance Tests give a runnable command or `tests: manual` plus checklist; Todos carry `(P0-P3)`.
 6. Keep nodes 80–600 words: split when big, merge when tiny. Run `ft index` then `ft lint`.
-7. Do not touch project code in this mode.
+7. When a planned capability is a genuinely distinct piece of an existing subsystem node (its own test class, its own acceptance criteria, something you'd describe in one breath as "the X part"), scaffold it as a new child (`ft new <parent> <name>`) from the start — don't bundle it into the parent's `## Implemented` list and split later. Splitting after the fact is strictly worse: history is lost, and the tree reads shallower than what's actually built in the meantime. This is proactive, ahead of `ft lint`'s own size/children warn thresholds, not a reaction to them.
+8. Do not touch project code in this mode.
 
 ## Work loop (implement mode)
 
