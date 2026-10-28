@@ -1,6 +1,6 @@
 ---
 name: feature-tree
-status: planned
+status: done
 parent: 
 tests: manual
 last_verified: 2026-10-28
@@ -16,7 +16,6 @@ A hierarchical planning method delivered as a Claude skill plus a small command 
 manual: `python3 skill/scripts/ft.py lint` reports 0 errors across all nodes (including this subtree); `python3 skill/scripts/ft.py tree` shows all 5 children under `feature-tree`.
 
 ## Todos
-- [ ] (P3) keep this subtree current as the real todos below are implemented — re-run `ft lint`/`ft index` after any further schema or UI change
 
 ## Questions
 

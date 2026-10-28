@@ -21,7 +21,7 @@ Plan lives in `features/` as markdown. Format rules: `features/SCHEMA.md`. Helpe
 - `ft lint` — schema, size, links, question/todo consistency. Run after every edit; fix errors before moving on.
 - `ft reflect --check [--under NODE]` — exit 1 if any confirmed `[x]` todo/question hasn't been archived+distilled yet. `ft reflect NODE --todo "<text>" --note "<prose>"` / `--question Qn --note "<prose>"` — do the archiving (see Reflect below).
 - `ft delete NAME [--subtree] [--yes]`, `ft rename OLD NEW`, `ft move NAME NEW_PARENT|-` — structural edits to a mis-shaped tree. Dry-run by default for `delete`; pass `--yes` to apply.
-- `ft status [--under NODE]` — human briefing: PROGRESS, NEEDS YOU (questions to answer, assumptions to confirm, HITL todos, TLE, lint errors), AGENT CAN DO ALONE. Run it first when resuming and last when handing off.
+- `ft status [--under NODE]` — human briefing: PROGRESS, NEEDS YOU (questions to answer, assumptions to confirm, HITL todos, TLE, lint errors), AGENT CAN DO ALONE. Run it first when resuming and last when handing off. It prints `AGENT IDLE` when only human items remain: that is a valid, final stopping point (phrase goals as "until `ft status` shows AGENT IDLE" so a Stop gate cannot loop on human-gated items).
 - `ft assume NODE Qn [--option N]` — unattended only: answer an optioned open question with its recommended option (default 1), marked `[~]` unconfirmed, unblocks its todos. Never for option-less questions.
 - `ft pause [reason]` / `ft resume` — human kill switch (`features/.paused`). While paused, `ft next` prints PAUSED and `ft work` exits 5: do no work.
 - `ft init [PATH]` — bootstrap a rough-draft tree from an existing codebase (refuses if `features/` is already non-empty).

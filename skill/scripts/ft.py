@@ -807,6 +807,8 @@ def cmd_status(a, nodes, root):
     print(f"  next: P{pick[0]} {pick[2]}  ({pick[1]})" if pick else "  nothing ready (blocked on you, or done)")
     if unrefl:
         print(f"  housekeeping: {unrefl} unreflected item(s) (`ft reflect --check`)")
+    if not pick and not unrefl:
+        print("\nAGENT IDLE: nothing left the agent can do alone. Remaining items need a human; stopping here is correct.")
     return 0
 
 

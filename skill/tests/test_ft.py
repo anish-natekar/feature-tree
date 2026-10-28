@@ -413,6 +413,12 @@ class AutonomyTests(unittest.TestCase):
             args += ["--option", o]
         return ft(p, *args)
 
+    def test_status_reports_agent_idle(self):
+        p = make(["- [ ] (P2) human only {hitl}"])
+        self.assertIn("AGENT IDLE", ft(p, "status").stdout)
+        p = make(["- [ ] (P2) free work"])
+        self.assertNotIn("AGENT IDLE", ft(p, "status").stdout)
+
     def test_status_sections_and_needs_you(self):
         p = make(["- [ ] (P1) pick it {blocked: Q1}", "- [ ] (P2) human only {hitl}", "- [ ] (P2) free work"])
         self.ask_opts(p, "MIT", "GPL")

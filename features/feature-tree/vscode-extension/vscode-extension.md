@@ -16,7 +16,7 @@ A VS Code extension giving the tree a visual home instead of raw markdown, with 
 `cd vscode-feature-tree && npm test` passes (`tsc -p .` then `node --test out/test/*.test.js`; 45 tests, aggregate across all 3 children).
 
 ## Todos
-- [ ] (P2) verify the extension in a real, live VS Code window (installed via the `~/.vscode/extensions` symlink) — so far only exercised through jsdom-simulated `node --test` runs, never an actual Extension Host; applies across all 3 surfaces equally
+- [ ] (P2) verify the extension in a real, live VS Code window (installed via the `~/.vscode/extensions` symlink) — so far only exercised through jsdom-simulated `node --test` runs, never an actual Extension Host; applies across all 3 surfaces equally {hitl}
 
 ## Questions
 

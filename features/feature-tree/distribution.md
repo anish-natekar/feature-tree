@@ -16,7 +16,7 @@ How feature-tree reaches anyone besides its author: the public GitHub repository
 manual checklist: repo is public and cloneable; `README.md` and `LICENSE` exist at the repo root; `vsce package` produces an installable `.vsix` without error.
 
 ## Todos
-- [ ] (P3) tag a `v0.1.0` release once the extension install story is settled
+- [ ] (P3) tag a `v0.1.0` release once the extension install story is settled {hitl}
 
 ## Questions
 - [~] Q1: How should the VS Code extension reach a install?
