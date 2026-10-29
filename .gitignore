@@ -3,3 +3,4 @@ out/
 features/.work/
 __pycache__/
 *.vsix
+site/

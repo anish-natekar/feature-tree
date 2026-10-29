@@ -4,6 +4,8 @@ A map of a project that a human can read, steer and trust while agents write the
 
 Agents now write more code than anyone can review line by line. What a person can still review is intent, decisions, facts and capabilities. The feature tree is that map, kept as plain markdown in `features/` next to the code and versioned with it. Each node is one feature: what it is and why (Abstract), how it works in plain language (Methodology), how to know it works (Acceptance Tests), what is left (Todos), what needs a decision (Questions), and what is known and built (Implemented, Facts & Details). Nodes link with `[[node]]` and the files open cleanly in Obsidian. The tree sits one step above the code: detailed at the leaves, abstract near the root, and never tied to a programming language.
 
+**New here? Read [docs/USAGE.md](docs/USAGE.md)**: install, setup, and use with Claude Code or Codex, in the terminal, VS Code, or the desktop app.
+
 ## The loop
 
 Agents work from the tree, and the human steers it.
