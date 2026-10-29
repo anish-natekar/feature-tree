@@ -26,6 +26,8 @@ A VS Code extension giving the tree a visual home instead of raw markdown, with 
 
 ## Facts & Details
 
+- Human check (2026-10-29): the graph panel opened in a live editor window and showed the same tree as the plan files. The node editor and the drawer editing paths are not yet confirmed live.
+
 ## Citations
 - [features/SCHEMA.md](../../SCHEMA.md)
 
