@@ -43,7 +43,7 @@ The README now explains the idea (a human-readable map one step above the code),
 ## Children
 - [[autonomy]] (done)
 - [[claude-hooks]] (done)
-- [[distribution]] (planned)
+- [[distribution]] (done)
 - [[ft-cli]] (done)
 - [[standalone-viewer]] (planned)
 - [[vscode-extension]] (planned)

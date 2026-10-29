@@ -39,10 +39,6 @@ Data kept: none of its own; the document is the only state.
 ## Todos
 
 ## Questions
-- [~] Q1: Should the custom node-editor tab replace plain markdown as the default for files under `features/`, or stay opt-in?
-  - O: Keep opt-in (current — `priority: "option"` in `customEditors`, opened explicitly via "Open With" or from the graph panel)
-  - O: Make it the default editor for `features/**/*.md` except `SCHEMA.md`
-  - A (agent): assumed default 'Keep opt-in (current — `priority: "option"` in `customEditors`, opened explicitly via "Open With" or from the graph panel)' while unattended; unconfirmed, reopen to change
 
 ## Implemented
 - Opt-in custom editor for plan files.
@@ -51,13 +47,16 @@ Data kept: none of its own; the document is the only state.
 - Raw view switch and guarded link opening.
 
 ## Facts & Details
-- Decision, assumed by the agent while unattended and unconfirmed: stay opt-in rather than replace plain markdown. Reopen the question to change it.
-- The message set between page and host is deliberately minimal and cannot start a process.
+- The message set between page and host is deliberately minimal and cannot start a process.- Decided (confirmed by the human): the custom node editor stays opt-in, opened explicitly from the graph panel or via Open With. Plain markdown remains the default so hand editing is never surprising.
 
 ## Citations
 - [features/SCHEMA.md](../../SCHEMA.md)
 
 ## Archived
 - [x] (P2) decide whether the `featureTree.node` custom editor should become the *default* editor for `features/**/*.md` (minus `SCHEMA.md`), or stay opt-in via right-click "Open With" as it is now
+- [x] Q1: Should the custom node-editor tab replace plain markdown as the default for files under `features/`, or stay opt-in?
+  - O: Keep opt-in (current — `priority: "option"` in `customEditors`, opened explicitly via "Open With" or from the graph panel)
+  - O: Make it the default editor for `features/**/*.md` except `SCHEMA.md`
+  - A (agent): assumed default 'Keep opt-in (current — `priority: "option"` in `customEditors`, opened explicitly via "Open With" or from the graph panel)' while unattended; unconfirmed, reopen to change
 
 ## Children

@@ -22,7 +22,7 @@ Editor extension: today a developer installs it by copying the extension folder 
 
 Because this is a plain copy and not a link, any later change to the extension's interface assets must be copied again, otherwise the panel keeps showing the old interface. A stale panel is therefore the first thing to suspect when a fix does not appear. The standalone viewer has no such problem because it is regenerated as a whole.
 
-There is no packaged installer file and no marketplace listing. Publishing to a marketplace needs a registered publisher identity, which only the owner can choose, so the current decision, assumed by the agent while unattended and unconfirmed, is to stay local and developer-only. Packaging an installer file for direct sharing is the middle option still open.
+There is no packaged installer file and no marketplace listing. Publishing to a marketplace needs a registered publisher identity, which only the owner can choose, so the decision, confirmed by the human, is to stay local and developer-only. Packaging an installer file for direct sharing is the middle option still open.
 
 ## Acceptance Tests
 manual checklist: a fresh clone of the repo runs the skill and command-line tool with no build step; following the three extension install steps makes the extension appear after an editor reload; `vsce package` produces an installable `.vsix` without error.
@@ -30,11 +30,6 @@ manual checklist: a fresh clone of the repo runs the skill and command-line tool
 ## Todos
 
 ## Questions
-- [~] Q1: How should the VS Code extension reach a install?
-  - O: Keep it local/dev-only (current — symlinked into `~/.vscode/extensions/`, no publisher id needed)
-  - O: Package a `.vsix` and share it directly (no Marketplace, no publisher id)
-  - O: Register a publisher id and publish to the VS Code Marketplace
-  - A (agent): assumed default 'Keep it local/dev-only (current — symlinked into `~/.vscode/extensions/`, no publisher id needed)' while unattended; unconfirmed, reopen to change
 
 ## Implemented
 - Corrected extension manifest and debug-host launch configurations, so the extension activates and can be run during development.
@@ -43,12 +38,17 @@ manual checklist: a fresh clone of the repo runs the skill and command-line tool
 
 ## Facts & Details
 - Why not publish yet: a marketplace listing needs a registered publisher identity, a decision only the owner can make.
-- The local-only choice is an unconfirmed agent assumption; the human should confirm or reopen it.
+- Decided (confirmed by the human): the extension stays local and development-only for now, installed by linking into the editor's extensions folder. No publisher identity or marketplace listing until the project is ready for outside users.
 
 ## Citations
 - [package.json](../../../vscode-feature-tree/package.json)
 
 ## Archived
 - [x] (P1) choose a real publisher id and decide whether to publish the extension to the VS Code Marketplace, vs. keeping it a local/dev-only install
+- [x] Q1: How should the VS Code extension reach a install?
+  - O: Keep it local/dev-only (current — symlinked into `~/.vscode/extensions/`, no publisher id needed)
+  - O: Package a `.vsix` and share it directly (no Marketplace, no publisher id)
+  - O: Register a publisher id and publish to the VS Code Marketplace
+  - A (agent): assumed default 'Keep it local/dev-only (current — symlinked into `~/.vscode/extensions/`, no publisher id needed)' while unattended; unconfirmed, reopen to change
 
 ## Children

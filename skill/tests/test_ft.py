@@ -348,6 +348,12 @@ class DependencyTests(unittest.TestCase):
         self.assertIn("autonomous ok", out)
         self.assertNotIn("ask-a-human", out)
 
+    def test_todos_lists_hitl_without_crashing(self):
+        p = make(["- [ ] (P1) ask-a-human {hitl}"])
+        r = ft(p, "todos")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("HITL", r.stdout)
+
 
 class RollupTests(unittest.TestCase):
     def test_tree_shows_rollup_percentage(self):

@@ -398,7 +398,7 @@ def cmd_todos(a, nodes, root):
             if n.is_blocked_by_node(tf, by_name):
                 text += f"  \u26d4 blocked by {tf['blocked_by']}"
             if tf["hitl"]:
-                text += "  \ud83d\udc64 HITL"
+                text += "  \U0001F464 HITL"
             if tf["tle"]:
                 text += f"  \u23f1 TLE {tf['tle']}"
             if done and not a.all:
